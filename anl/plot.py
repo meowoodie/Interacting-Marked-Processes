@@ -87,33 +87,3 @@ if __name__ == '__main__':
     # print(y.shape)
     # plt.plot(y.sum(axis=1))
     # plt.show()
-
-
-# def plot_spatial_intensity(data):
-#     locs   = np.load("data/geolocation.npy")
-#     # prepare the heatmap data in advance
-#     print('[%s] preparing the dataset %d × (%d, %d) for plotting.' %
-#         (arrow.now(), t_slots, grid_size, grid_size), file=sys.stderr)
-#     # initiate the figure and plot
-#     fig = plt.figure()
-#     # set the image with largest total intensity as the intial plot for automatically setting color range.
-#     im  = plt.scatter(locs[:, 0], locs[:, 1], c=data[-1], cmap='hot', animated=True) 
-#     # function for updating the image of each frame
-#     def animate(i):
-#         # print(t_span[i])
-#         im.set_data(data[i])
-#         return im,
-#     # function for initiating the first image of the animation
-#     def init():
-#         im.set_data(data[0])
-#         return im,
-#     # animation
-#     print('[%s] start animation.' % arrow.now(), file=sys.stderr)
-#     anim = animation.FuncAnimation(fig, animate,
-#         init_func=init, frames=t_slots, interval=interval, blit=True)
-#     # show the plot
-#     plt.show()
-#     # # Set up formatting for the movie files
-#     # Writer = animation.writers['ffmpeg']
-#     # writer = Writer(fps=15, metadata=dict(artist='Woody'), bitrate=1800)
-#     # anim.save('hpp.mp4', writer=writer)

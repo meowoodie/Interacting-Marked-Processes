@@ -18,9 +18,10 @@ for filename in tqdm(os.listdir(rootpath)):
         f = h5py.File(os.path.join(rootpath, filename), "r")
         t = arrow.get(filename, "YYYYMMDDHHmm")
         outage = np.array(f["outage"]).tolist()
+        idx    = np.array(f["idx"])
         lat    = np.array(f["lat"])
         lon    = np.array(f["lon"])
-        loc    = np.stack([lat, lon], axis=1)
+        loc    = np.stack([lat, lon, idx], axis=1)
         # only keep complete data entry
         if len(outage) == 371: 
             data.append([t.timestamp] + outage)
