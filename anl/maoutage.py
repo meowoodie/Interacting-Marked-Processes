@@ -30,8 +30,11 @@ np.save("data/geolocation.npy", loc)
 
 print("[%s] sorting the list by their timestamp ..." % arrow.now())
 data = np.array(data)
-# data.view('i8').sort(order=['f0'], axis=0)
 data = data[np.argsort(data[:, 0])]
+print(data[0, 0])
+print(arrow.get(data[0, 0]))
+print(data[-1, 0])
+print(arrow.get(data[-1, 0]))
 
 print("[%s] constructing complete data matrix as a matlab data file ..." % arrow.now())
 start_t    = data[0, 0]  # start time
