@@ -139,16 +139,18 @@ class CvxpyNetPoissonProcess(NetObservation):
         loglik = self._log_likelihood(tau, t)
 
         # constraint 1: enforce variable to be non-negative
-        con1   = [ self.var >= 0. ]
+        con1 = [ self.var >= 0. ]
         # constraint 2: smoothness
-        con2   = [ cp.abs(vec[1:] - vec[:-1]) <= smoothness for vec in self.beta[1:] ]
+        con2 = [ cp.abs(vec[1:] - vec[:-1]) <= smoothness for vec in self.beta[1:] ]
         # constraint 3: monotonicity
-        con3   = [ vec[1:] <= vec[:-1] for vec in self.beta[1:] ]
+        con3 = [ vec[1:] <= vec[:-1] for vec in self.beta[1:] ]
+        # constraint 4: spatial proximity 
+        # con4 = 
         # set of constraints
-        cons   = con1 + con2 + con3
+        cons = con1 + con2 + con3
 
-        # objective:    maximize log-likelihood
-        obj    = cp.Maximize(loglik)
-        prob   = cp.Problem(obj, cons)
+        # objective: maximize log-likelihood
+        obj  = cp.Maximize(loglik)
+        prob = cp.Problem(obj, cons)
         return prob
 

@@ -6,12 +6,15 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
-from utils import avg, proj
+from utils import avg, proj, scale_down_data
 from plot import plot_data_on_map
 
-def MAdataloader():
+def MAdataloader(K=20):
     """
     data loader for MA data sets including outage sub data set and weather sub data set
+
+    Args:
+    - K: number of locations considered
     """
     # geolocation for weather data
     geo_weather = np.load("data/weathergeolocations.npy")
@@ -38,10 +41,6 @@ def MAdataloader():
     nzero_inds = np.nonzero(obs_wind.sum(axis=1))[0]
 
     # data standardization
-    # # - outage
-    # scl_outage = StandardScaler()
-    # scl_outage.fit(obs_outage)
-    # obs_outage = scl_outage.transform(obs_outage)
     # - wind
     scl_wind   = StandardScaler()
     scl_wind.fit(obs_wind)
@@ -63,25 +62,14 @@ def MAdataloader():
     scl_radar.fit(obs_radar)
     obs_radar  = scl_radar.transform(obs_radar)
 
-    obs_wind   = proj(obs_wind, coord=geo_weather, proj_coord=geo_outage, k=3)
-    obs_temp   = proj(obs_temp, coord=geo_weather, proj_coord=geo_outage, k=3)
-    obs_vil    = proj(obs_vil, coord=geo_weather, proj_coord=geo_outage, k=3)
-    obs_gph    = proj(obs_gph, coord=geo_weather, proj_coord=geo_outage, k=3)
-    obs_radar  = proj(obs_radar, coord=geo_weather, proj_coord=geo_outage, k=3)
+    # scale down locations from 371 to k by performing k-means
+    obs_outage, kcoord = scale_down_data(data=obs_outage, coord=geo_outage, k=K)
 
+    # project data to another coordinate system
+    obs_wind   = proj(obs_wind, coord=geo_weather, proj_coord=kcoord, k=10)
+    obs_temp   = proj(obs_temp, coord=geo_weather, proj_coord=kcoord, k=10)
+    obs_vil    = proj(obs_vil, coord=geo_weather, proj_coord=kcoord, k=10)
+    obs_gph    = proj(obs_gph, coord=geo_weather, proj_coord=kcoord, k=10)
+    obs_radar  = proj(obs_radar, coord=geo_weather, proj_coord=kcoord, k=10)
 
-    # obs_outage = avg(obs_outage, N=8)
-    # obs_temp   = avg(obs_temp, N=8)
-
-    # obs_o = obs_outage.mean(axis=1)
-    # obs_t = obs_temp.mean(axis=1)
-
-    # # # plt.plot(obs_o[nzero_inds])
-    # # # plt.plot(obs_t[nzero_inds])
-    # # plt.plot(obs_o)
-    # # plt.plot(obs_t)
-    # # plt.show()
-
-    # plot_data_on_map(obs_temp, geo_outage, prefix="proj-wind")
-
-    return obs_outage, obs_temp
+    return obs_outage, obs_temp, kcoord

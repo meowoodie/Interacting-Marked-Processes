@@ -5,6 +5,7 @@ import arrow
 import random
 import numpy as np
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.cluster import KMeans
 
 def avg(mat, N=2):
     """
@@ -49,3 +50,22 @@ def proj(mat, coord, proj_coord, k=10):
             proj_mat[t, loc] = mat[t, neighbors[loc]].mean()
 
     return proj_mat
+
+def scale_down_data(data, coord, k=20):
+    """
+    cluster coords into k components.
+
+    Args:
+    - data:     data matrix           [ N, n_locations ]
+    - coord:    coordinate system     [ n_locations, 2 ]
+    Return:
+    - newdata:  scaled data matrix    [ N, k ]
+    - newcoord: new coordinate system [ k, 2]
+    """
+    N, K    = data.shape
+    kmeans  = KMeans(n_clusters=k, random_state=0).fit(coord)
+    newdata = np.zeros((N, k))
+    for _id in range(k):
+        loc_inds        = np.where(kmeans.labels_ == _id)[0]
+        newdata[:, _id] = data[:, loc_inds].mean(axis=1)
+    return newdata, kmeans.cluster_centers_
