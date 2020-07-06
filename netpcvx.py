@@ -9,6 +9,7 @@ import cvxpy as cp
 import torch.optim as optim
 from tqdm import tqdm
 from scipy import sparse
+from sklearn.metrics.pairwise import euclidean_distances
 
 from dataloader import MAdataloader
 from utils import avg
@@ -17,7 +18,7 @@ class NetObservation(object):
     """
     Observations used by Interacting Network Process
     """
-    def __init__(self, d, obs):
+    def __init__(self, d, obs, coords):
         """
         Args:
         - d:   memory depth
@@ -28,6 +29,7 @@ class NetObservation(object):
         self.N, self.K = obs.shape
         self.d         = d
         self.obs       = obs
+        self.coords    = coords
 
     def eta(self, omega):
         """
@@ -49,18 +51,23 @@ class CvxpyNetPoissonProcess(NetObservation):
     PyTorch Module for Interacting Network Process
     """
 
-    def __init__(self, d, data):
+    def __init__(self, d, data, coords):
         """
         Args:
-        - d:    memory depth
-        - data: data matrix [ N, K ]
+        - d:      memory depth
+        - data:   data matrix [ N, K ]
+        - coords: coordinates [ K, 2 ]
         """
-        NetObservation.__init__(self, d, data)
+        NetObservation.__init__(self, d, data, coords)
         # variables
-        beta0       = cp.Variable(self.K)                                              # [ K ]
-        beta1       = [ cp.Variable(d) for k in range(self.K) for k in range(self.K) ] # [ K x K, d ]
-        self.beta   = [ beta0 ] + beta1                                                # [ K ] + [ K x K, d ]
-        self.var    = cp.hstack(self.beta)       # cvxpy variable in a form of 1D vector [ K + K x K x d ]   
+        # beta0       = cp.Variable(self.K)                                              # [ K ]
+        # beta1       = [ cp.Variable(d) for k in range(self.K) for k in range(self.K) ] # [ K x K, d ]
+
+        beta0       = cp.Variable(self.K, nonneg=True)                           # [ K ]
+        beta1       = [ cp.Variable(d, nonneg=True)
+            for k in range(self.K) for k in range(self.K) ]                      # [ K x K, d ]
+        self.beta   = [ beta0 ] + beta1                                          # [ K ] + [ K x K, d ]
+        self.var    = cp.hstack(self.beta) # cvxpy variable in a form of 1D vector [ K + K x K x d ]   
 
     def fit(self, tau, t):
         """
@@ -126,7 +133,7 @@ class CvxpyNetPoissonProcess(NetObservation):
         loglik = cp.sum(cp.hstack(loglik))
         return loglik
     
-    def _cvxsolver(self, tau, t, smoothness=1e-1):
+    def _cvxsolver(self, tau, t, smoothness=1e-1, proxk=5):
         """
         cvxpy solver for maximum likelihood estimation
         
@@ -139,18 +146,43 @@ class CvxpyNetPoissonProcess(NetObservation):
         loglik = self._log_likelihood(tau, t)
 
         # constraint 1: enforce variable to be non-negative
-        con1 = [ self.var >= 0. ]
+        # con1 = [ self.var >= 0. ]
         # constraint 2: smoothness
         con2 = [ cp.abs(vec[1:] - vec[:-1]) <= smoothness for vec in self.beta[1:] ]
         # constraint 3: monotonicity
         con3 = [ vec[1:] <= vec[:-1] for vec in self.beta[1:] ]
         # constraint 4: spatial proximity 
-        # con4 = 
+        mask = self._proximity_mask(self.coords, k=proxk)
+        con4 = [ self.beta[1 + k0 * self.K + k1] == 0. 
+            for k0 in range(self.K) for k1 in range(self.K) 
+            if mask[k0, k1] == 0. ]
         # set of constraints
-        cons = con1 + con2 + con3
+        cons = con2 + con3 + con4
 
         # objective: maximize log-likelihood
         obj  = cp.Maximize(loglik)
         prob = cp.Problem(obj, cons)
         return prob
+
+    @staticmethod
+    def _proximity_mask(coords, k):
+        """
+        Args:
+        - coords: a list of coordinates for K locations [ K, 2 ]
+        """
+        # return a binary (0, 1) vector where value 1 indicates whether the entry is 
+        # its k nearest neighbors. 
+        def _k_nearest_neighbors(arr, k=k):
+            idx  = arr.argsort()[:k]  # [K]
+            barr = np.zeros(len(arr)) # [K]
+            barr[idx] = 1         
+            return barr
+        
+        # pairwise distance matrix
+        distmat = euclidean_distances(coords)                           # [K, K]
+        # calculate k nearest mask where the k nearest neighbors are indicated by 1 in each row 
+        proxmat = np.apply_along_axis(_k_nearest_neighbors, 1, distmat) # [K, K]
+        return proxmat
+
+
 
