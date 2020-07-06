@@ -38,10 +38,10 @@ def MAdataloader():
     nzero_inds = np.nonzero(obs_wind.sum(axis=1))[0]
 
     # data standardization
-    # - outage
-    scl_outage = StandardScaler()
-    scl_outage.fit(obs_outage)
-    obs_outage = scl_outage.transform(obs_outage)
+    # # - outage
+    # scl_outage = StandardScaler()
+    # scl_outage.fit(obs_outage)
+    # obs_outage = scl_outage.transform(obs_outage)
     # - wind
     scl_wind   = StandardScaler()
     scl_wind.fit(obs_wind)
@@ -69,17 +69,19 @@ def MAdataloader():
     obs_gph    = proj(obs_gph, coord=geo_weather, proj_coord=geo_outage, k=3)
     obs_radar  = proj(obs_radar, coord=geo_weather, proj_coord=geo_outage, k=3)
 
-    obs_o = obs_outage.mean(axis=1)
-    obs_w = obs_wind.mean(axis=1)
-    obs_t = obs_temp.mean(axis=1)
-    # obs_v = obs_vil.mean(axis=1)
-    # obs_g = obs_gph.mean(axis=1)
-    # obs_r = obs_radar.mean(axis=1)
 
-    # plt.plot(obs_o[nzero_inds])
-    # plt.plot(obs_t[nzero_inds])
-    # plt.show()
+    # obs_outage = avg(obs_outage, N=8)
+    # obs_temp   = avg(obs_temp, N=8)
 
-    plot_data_on_map(obs_wind, geo_outage, prefix="proj-wind")
+    # obs_o = obs_outage.mean(axis=1)
+    # obs_t = obs_temp.mean(axis=1)
+
+    # # # plt.plot(obs_o[nzero_inds])
+    # # # plt.plot(obs_t[nzero_inds])
+    # # plt.plot(obs_o)
+    # # plt.plot(obs_t)
+    # # plt.show()
+
+    # plot_data_on_map(obs_temp, geo_outage, prefix="proj-wind")
 
     return obs_outage, obs_temp
