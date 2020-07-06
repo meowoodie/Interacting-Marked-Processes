@@ -60,14 +60,11 @@ class CvxpyNetPoissonProcess(NetObservation):
         """
         NetObservation.__init__(self, d, data, coords)
         # variables
-        # beta0       = cp.Variable(self.K)                                              # [ K ]
-        # beta1       = [ cp.Variable(d) for k in range(self.K) for k in range(self.K) ] # [ K x K, d ]
-
-        beta0       = cp.Variable(self.K, nonneg=True)                           # [ K ]
-        beta1       = [ cp.Variable(d, nonneg=True)
-            for k in range(self.K) for k in range(self.K) ]                      # [ K x K, d ]
-        self.beta   = [ beta0 ] + beta1                                          # [ K ] + [ K x K, d ]
-        self.var    = cp.hstack(self.beta) # cvxpy variable in a form of 1D vector [ K + K x K x d ]   
+        beta0     = cp.Variable(self.K, nonneg=True)                           # [ K ]
+        beta1     = [ cp.Variable(d, nonneg=True)
+            for k in range(self.K) for k in range(self.K) ]                    # [ K x K, d ]
+        self.beta = [ beta0 ] + beta1                                          # [ K ] + [ K x K, d ]
+        self.var  = cp.hstack(self.beta) # cvxpy variable in a form of 1D vector [ K + K x K x d ]
 
     def fit(self, tau, t):
         """
@@ -145,19 +142,17 @@ class CvxpyNetPoissonProcess(NetObservation):
         """
         loglik = self._log_likelihood(tau, t)
 
-        # constraint 1: enforce variable to be non-negative
-        # con1 = [ self.var >= 0. ]
-        # constraint 2: smoothness
-        con2 = [ cp.abs(vec[1:] - vec[:-1]) <= smoothness for vec in self.beta[1:] ]
-        # constraint 3: monotonicity
-        con3 = [ vec[1:] <= vec[:-1] for vec in self.beta[1:] ]
-        # constraint 4: spatial proximity 
+        # constraint 1: smoothness
+        con1 = [ cp.abs(vec[1:] - vec[:-1]) <= smoothness for vec in self.beta[1:] ]
+        # constraint 2: monotonicity
+        con2 = [ vec[1:] <= vec[:-1] for vec in self.beta[1:] ]
+        # constraint 3: spatial proximity 
         mask = self._proximity_mask(self.coords, k=proxk)
-        con4 = [ self.beta[1 + k0 * self.K + k1] == 0. 
+        con3 = [ self.beta[1 + k0 * self.K + k1] == 0. 
             for k0 in range(self.K) for k1 in range(self.K) 
             if mask[k0, k1] == 0. ]
         # set of constraints
-        cons = con2 + con3 + con4
+        cons = con1 + con2 + con3
 
         # objective: maximize log-likelihood
         obj  = cp.Maximize(loglik)

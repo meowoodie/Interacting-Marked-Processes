@@ -15,7 +15,7 @@ from netp import TorchNetPoissonProcess
 
 
 
-def plot_data_on_map(data, locs, prefix):
+def plot_data_on_map(data, locs, _id, prefix):
     """
     Args:
     - data: [ n_loc ]
@@ -26,7 +26,7 @@ def plot_data_on_map(data, locs, prefix):
     - https://matplotlib.org/basemap/users/geography.html
     - https://jakevdp.github.io/PythonDataScienceHandbook/04.13-geographic-data-with-basemap.html
     """
-    N, K = data.shape
+    # N, K = data.shape
 
     plt.rc('text', usetex=True)
     font = {
@@ -51,10 +51,11 @@ def plot_data_on_map(data, locs, prefix):
     size = (data - data.min()) / (data.max() - data.min())
     size = size * (maxs - mins) + mins
     sct  = m.scatter(locs[:, 1], locs[:, 0], latlon=True, alpha=0.5, s=size, c="r")
+    sct  = m.scatter(locs[_id, 1], locs[_id, 0], latlon=True, alpha=1., s=10, c="b")
     # legend
     handles, labels = sct.legend_elements(prop="sizes", alpha=0.6, num=6, 
         func=lambda s: (s - mins) / (maxs - mins) * (data.max() - data.min()) + data.min())
-    plt.legend(handles, labels, loc="lower left", title="Number of outages")
+    plt.legend(handles, labels, loc="lower left", title=prefix)
 
     plt.savefig("imgs/%s.pdf" % prefix)
 
