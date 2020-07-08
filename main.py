@@ -18,8 +18,8 @@ if __name__ == "__main__":
     
     obs_outage, obs_temp, kcoord = MAdataloader(K=30)
 
-    obs_outage = avg(obs_outage, N=2) # [180, 371]
-    obs_temp   = avg(obs_temp, N=2)   # [180, 371]
+    obs_outage = avg(obs_outage.transpose(), N=2) # [180, 371]
+    obs_temp   = avg(obs_temp.transpose(), N=2)   # [180, 371]
 
     cp_netp = CvxpyNetPoissonProcess(d=12, data=obs_outage, coords=kcoord)
     cp_netp.fit(tau=12, t=180)
