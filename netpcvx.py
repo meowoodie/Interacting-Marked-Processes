@@ -146,10 +146,10 @@ class CvxpyNetPoissonProcess(NetObservation):
         con1 = [ cp.abs(vec[1:] - vec[:-1]) <= smoothness for vec in self.beta[1:] ]
         # constraint 2: monotonicity
         con2 = [ vec[1:] <= vec[:-1] for vec in self.beta[1:] ]
-        # constraint 3: spatial proximity 
+        # constraint 3: spatial proximity
         mask = self._proximity_mask(self.coords, k=proxk)
-        con3 = [ self.beta[1 + k0 * self.K + k1] == 0. 
-            for k0 in range(self.K) for k1 in range(self.K) 
+        con3 = [ self.beta[1 + k0 * self.K + k1] == 0.
+            for k0 in range(self.K) for k1 in range(self.K)
             if mask[k0, k1] == 0. ]
         # set of constraints
         cons = con1 + con2 + con3

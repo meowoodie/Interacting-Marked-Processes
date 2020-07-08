@@ -6,10 +6,9 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
-from utils import avg, proj, scale_down_data
-from plot import plot_data_on_map
+from utils import avg, proj #, scale_down_data
 
-def MAdataloader(K=20):
+def MAdataloader(K=None):
     """
     data loader for MA data sets including outage sub data set and weather sub data set
 
@@ -62,14 +61,25 @@ def MAdataloader(K=20):
     scl_radar.fit(obs_radar)
     obs_radar  = scl_radar.transform(obs_radar)
 
-    # scale down locations from 371 to k by performing k-means
-    obs_outage, kcoord = scale_down_data(data=obs_outage, coord=geo_outage, k=K)
+    # # scale down locations from 371 to k by performing k-means
+    # if K is not None:
+    #     obs_outage, kcoord = scale_down_data(data=obs_outage, coord=geo_outage, k=K)
 
     # project data to another coordinate system
-    obs_wind   = proj(obs_wind, coord=geo_weather, proj_coord=kcoord, k=10)
-    obs_temp   = proj(obs_temp, coord=geo_weather, proj_coord=kcoord, k=10)
-    obs_vil    = proj(obs_vil, coord=geo_weather, proj_coord=kcoord, k=10)
-    obs_gph    = proj(obs_gph, coord=geo_weather, proj_coord=kcoord, k=10)
-    obs_radar  = proj(obs_radar, coord=geo_weather, proj_coord=kcoord, k=10)
+    # if K is not None:
+    #     obs_wind   = proj(obs_wind, coord=geo_weather, proj_coord=kcoord, k=10)
+    #     obs_temp   = proj(obs_temp, coord=geo_weather, proj_coord=kcoord, k=10)
+    #     obs_vil    = proj(obs_vil, coord=geo_weather, proj_coord=kcoord, k=10)
+    #     obs_gph    = proj(obs_gph, coord=geo_weather, proj_coord=kcoord, k=10)
+    #     obs_radar  = proj(obs_radar, coord=geo_weather, proj_coord=kcoord, k=10)
+    # else:
+    obs_wind   = proj(obs_wind, coord=geo_weather, proj_coord=geo_outage, k=10)
+    obs_temp   = proj(obs_temp, coord=geo_weather, proj_coord=geo_outage, k=10)
+    obs_vil    = proj(obs_vil, coord=geo_weather, proj_coord=geo_outage, k=10)
+    obs_gph    = proj(obs_gph, coord=geo_weather, proj_coord=geo_outage, k=10)
+    obs_radar  = proj(obs_radar, coord=geo_weather, proj_coord=geo_outage, k=10)
 
-    return obs_outage, obs_temp, kcoord
+    obs_outage = avg(obs_outage, N=3).transpose()
+    obs_temp   = avg(obs_temp, N=3).transpose()
+
+    return obs_outage, obs_temp

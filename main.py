@@ -24,13 +24,3 @@ if __name__ == "__main__":
     cp_netp = CvxpyNetPoissonProcess(d=12, data=obs_outage, coords=kcoord)
     cp_netp.fit(tau=12, t=180)
     b0, b1  = cp_netp.save_solution(_dir="cvx_params")
-
-    # import matplotlib.pyplot as plt
-    
-    # for i in range(10):
-    #     plt.plot(b1[i, 0])
-    #     plt.show()
-        
-    # b1 = b1.sum(2)
-    # for _id in range(20):
-    #     plot_data_on_map(b1[_id, :], kcoord, _id=_id, prefix="beta" + str(_id))
