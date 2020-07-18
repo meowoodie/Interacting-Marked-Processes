@@ -62,13 +62,13 @@ class TorchHawkes(torch.nn.Module):
         - extobs: externel observations [ N, K, M ]
         """
         torch.nn.Module.__init__(self)
+        # data
+        self.obs    = torch.Tensor(obs) # [ K, N ]
+        self.extobs = torch.Tensor(extobs) if extobs is not None else None # [ K, N ]
         # configurations
         # self.N, self.K, self.M = extobs.shape
         self.K, self.N = obs.shape
         self.d         = d
-        # data
-        self.obs    = torch.Tensor(obs) # [ K, N ]
-        self.extobs = torch.Tensor(extobs) if extobs is not None else None # [ K, N ]
         # parameters
         self.mu    = self.obs.mean(1) / 10 + 1e-2
         self.beta  = torch.nn.Parameter(torch.Tensor([2]))
@@ -116,13 +116,14 @@ class TorchHawkes(torch.nn.Module):
         lams     = torch.stack(lams, dim=1)                       # [ K, N ]
         Nloglams = self.obs * torch.log(lams)                     # [ K, N ]
         # log-likelihood function
-        loglik = (Nloglams - lams).sum()
+        loglik   = (Nloglams - lams).sum()
         return loglik, lams
 
     def forward(self):
         """
         customized forward function
         """
+        # calculate data log-likelihood
         return self._log_likelihood()
 
     @staticmethod
@@ -191,19 +192,20 @@ class ProximityClipper(object):
 
 
 if __name__ == "__main__":
-
     torch.manual_seed(1)
 
-    obs_outage, obs_temp = MAdataloader()
+    import matplotlib.pyplot as plt 
+    from plot import plot_data_on_map, plot_data_on_linechart, plot_2data_on_linechart, plot_beta_net_on_map
 
+    locs = np.load("data/geolocation.npy")
+    obs_outage, obs_temp, obs_wind = MAdataloader(is_training=False)
     print(obs_outage.shape)
-    print(obs_temp.shape)
 
     model = TorchHawkes(d=10, obs=obs_outage, extobs=None)
 
     # train(model, niter=200, lr=1., log_interval=10)
     # print("[%s] saving model..." % arrow.now())
-    # torch.save(model.state_dict(), "saved_models/hawkes-upt-mu.pt")
+    # torch.save(model.state_dict(), "saved_models/hawkes-upt-mu-subdata.pt")
 
     model.load_state_dict(torch.load("saved_models/hawkes-upt-mu.pt"))
     
@@ -211,65 +213,16 @@ if __name__ == "__main__":
 
     _, lams = model()
     lams    = lams.detach().numpy()
-    
-    locs = np.load("data/geolocation.npy")
-    import matplotlib.pyplot as plt 
 
     # ---------------------------------------------------
-    # plt.plot(lams.sum(0))
-    # plt.plot(obs_outage.sum(0))
-    # plt.legend(["prediction", "real"])
-    # plt.show()
-
+    plot_2data_on_linechart(lams.sum(0), obs_outage.sum(0), "Total number of outages over time (testing data)")
+    plot_2data_on_linechart(lams[199], obs_outage[199], "Prediction results for Boston (testing data)")
+    plot_2data_on_linechart(lams[199], obs_outage[199], "Prediction results for Boston (testing data)")
+    plot_2data_on_linechart(lams[316], obs_outage[316], "Prediction results for Worcester (testing data)")
+    plot_2data_on_linechart(lams[132], obs_outage[132], "Prediction results for Springfield (testing data)")
+    plot_2data_on_linechart(lams[192], obs_outage[192], "Prediction results for Cambridge (testing data)")
     # ---------------------------------------------------
 
-    alpha = model.alpha.detach().numpy()
-    
-    plt.figure()
-
-    thres = [ .3, .5 ]
-    pairs = [ (k1, k2) for k1 in range(model.K) for k2 in range(model.K) 
-        if alpha[k1, k2] > thres[0] and alpha[k1, k2] < thres[1] ]
-
-    # spectral clustering
-    from sklearn.cluster import spectral_clustering
-    from scipy.sparse import csgraph
-    from numpy import inf, NaN
-
-    cmap = ["red", "yellow", "green", "black", "purple"]
-    # adj  = np.zeros((model.K, model.K))
-    # for k1, k2 in pairs:
-    #     adj[k1, k2] = alpha[k1, k2]
-    # lap  = csgraph.laplacian(alpha, normed=False)
-    ls   = spectral_clustering(
-        affinity=alpha,
-        n_clusters=5, 
-        assign_labels="kmeans",
-        random_state=0)
-
-    print(len(ls))
-
-    plt.scatter(locs[:, 1], locs[:, 0], s=12, c=[ cmap[l] for l in ls ])
-
-    xs = [ (locs[k1][1], locs[k2][1]) for k1, k2 in pairs ] 
-    ys = [ (locs[k1][0], locs[k2][0]) for k1, k2 in pairs ]
-    cs = [ alpha[k1, k2] for k1, k2 in pairs ]
-
-    for i, (x, y, c) in enumerate(zip(xs, ys, cs)):
-        # print(i, len(cs), c, alpha.min(), alpha.max())
-        w = (c - thres[0]) / (thres[1] - thres[0]) 
-        plt.plot(x, y, linewidth=w/3, color='blue')
-        
-    plt.show()
-
-    # ---------------------------------------------------
-    # print(model.gamma.detach().numpy())
-    # gamma = model.gamma.detach().numpy()
-    # plt.figure()
-    # # plt.scatter(locs[:, 1], locs[:, 0], c=gamma.sum(1), cmap="hot")
-    # for k in range(model.K):
-    #     plt.plot(gamma[k, :])
-    # plt.show()
-
-
+    # alpha = model.alpha.detach().numpy()
+    # plot_beta_net_on_map(model.K, alpha, locs, "Correlation between locations and community structure")
     

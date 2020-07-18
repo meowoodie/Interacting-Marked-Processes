@@ -11,22 +11,20 @@ from tqdm import tqdm
 from scipy import sparse
 from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from netp import TorchNetPoissonProcess
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 
-def plot_data_on_map(data, locs, _id, prefix):
+def plot_data_on_map(data, locs, filename, dmin=None, dmax=None):
     """
     Args:
-    - data: [ n_loc ]
-    - locs: [ n_loc, 2 ]
-    
+    - data: [ n_locs ]
+
     References:
     - https://python-graph-gallery.com/315-a-world-map-of-surf-tweets/
     - https://matplotlib.org/basemap/users/geography.html
     - https://jakevdp.github.io/PythonDataScienceHandbook/04.13-geographic-data-with-basemap.html
     """
-    # N, K = data.shape
 
     plt.rc('text', usetex=True)
     font = {
@@ -48,76 +46,148 @@ def plot_data_on_map(data, locs, _id, prefix):
 
     # rescale marker size
     mins, maxs = 5, 300
+    dmin, dmax = data.min() if dmin is None else dmin, data.max() if dmax is None else dmax
+    print(dmin, dmax)
     size = (data - data.min()) / (data.max() - data.min())
     size = size * (maxs - mins) + mins
     sct  = m.scatter(locs[:, 1], locs[:, 0], latlon=True, alpha=0.5, s=size, c="r")
-    sct  = m.scatter(locs[_id, 1], locs[_id, 0], latlon=True, alpha=1., s=10, c="b")
+    # sct  = m.scatter(locs[_id, 1], locs[_id, 0], latlon=True, alpha=1., s=10, c="b")
     # legend
-    handles, labels = sct.legend_elements(prop="sizes", alpha=0.6, num=6, 
-        func=lambda s: (s - mins) / (maxs - mins) * (data.max() - data.min()) + data.min())
-    plt.legend(handles, labels, loc="lower left", title=prefix)
+    handles, labels = sct.legend_elements(prop="sizes", alpha=0.6, num=4, 
+        func=lambda s: (s - mins) / (maxs - mins) * (dmax - dmin) + dmin)
+    plt.title(filename)
+    plt.legend(handles, labels, loc="lower left", title="Num of outages")
 
-    plt.savefig("imgs/%s.pdf" % prefix)
+    plt.savefig("imgs/%s.pdf" % filename)
+
+def plot_data_on_linechart(data, filename, dmin=None, dmax=None):
+    """
+    Args:
+    - data: [ n_timeslots ]
+    """
+
+    dates = [
+        "2018-03-01", "2018-03-02", "2018-03-03", "2018-03-04", "2018-03-05",
+        "2018-03-06", "2018-03-07", "2018-03-08", "2018-03-09", "2018-03-10",
+        "2018-03-11", "2018-03-12", "2018-03-13", "2018-03-14", "2018-03-15" ]
+
+    plt.rc('text', usetex=True)
+    font = {
+        'family' : 'serif',
+        'weight' : 'bold',
+        'size'   : 20}
+    plt.rc('font', **font)
+    with PdfPages("imgs/%s.pdf" % filename) as pdf:
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(np.arange(len(data)), data, c="#cb416b", linewidth=3, linestyle="-", label="Real", alpha=.8)
+        ax.yaxis.grid(which="major", color='grey', linestyle='--', linewidth=0.5)
+        plt.xticks(np.arange(0, len(data), 24 / 3), dates, rotation=90)
+        plt.xlabel(r"Date")
+        plt.ylabel(r"Number of outages")
+        # plt.legend(loc='upper left', fontsize=13)
+        plt.title(filename)
+        fig.tight_layout()
+        pdf.savefig(fig)
+
+def plot_2data_on_linechart(data1, data2, filename, dmin=None, dmax=None):
+    """
+    Args:
+    - data: [ n_timeslots ]
+    """
+
+    dates = [
+        "2018-03-01", "2018-03-02", "2018-03-03", "2018-03-04", "2018-03-05",
+        "2018-03-06", "2018-03-07", "2018-03-08", "2018-03-09", "2018-03-10",
+        "2018-03-11", "2018-03-12", "2018-03-13", "2018-03-14", "2018-03-15" ]
+
+    plt.rc('text', usetex=True)
+    font = {
+        'family' : 'serif',
+        'weight' : 'bold',
+        'size'   : 20}
+    plt.rc('font', **font)
+    with PdfPages("imgs/%s.pdf" % filename) as pdf:
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(np.arange(len(data1)), data1, c="#cea2fd", linewidth=3, linestyle="--", label="Real", alpha=.8)
+        ax.plot(np.arange(len(data2)), data2, c="#677a04", linewidth=3, linestyle="--", label="Prediction", alpha=.8)
+        ax.yaxis.grid(which="major", color='grey', linestyle='--', linewidth=0.5)
+        plt.xticks(np.arange(0, len(data1), 24 / 3), dates, rotation=90)
+        plt.xlabel(r"Date")
+        plt.ylabel(r"Number of outages")
+        plt.legend(["Real outage", "Predicted outage"], loc='upper left', fontsize=13)
+        plt.title(filename)
+        fig.tight_layout()
+        pdf.savefig(fig)
 
 
+def plot_beta_net_on_map(K, alpha, locs, filename):
+    """
+    References:
+    - https://python-graph-gallery.com/315-a-world-map-of-surf-tweets/
+    - https://matplotlib.org/basemap/users/geography.html
+    - https://jakevdp.github.io/PythonDataScienceHandbook/04.13-geographic-data-with-basemap.html
+    """
 
-# def plot_beta_net_on_map():
-#     """
-#     References:
-#     - https://python-graph-gallery.com/315-a-world-map-of-surf-tweets/
-#     - https://matplotlib.org/basemap/users/geography.html
-#     - https://jakevdp.github.io/PythonDataScienceHandbook/04.13-geographic-data-with-basemap.html
-#     """
-#     data     = np.load("data/maoutage.npy")[2000:4000, :]
-#     N, K     = data.shape
-#     spr_data = sparse.csr_matrix(data)
-#     tnetp    = TorchNetPoissonProcess(d=4*6, K=K, N=N, data=spr_data)
+    # Make the background map
+    fig = plt.figure(figsize=(8, 8))
+    ax  = plt.gca()
+    m   = Basemap(
+        projection='lcc', resolution='f', 
+        lat_0=42.1, lon_0=-71.6,
+        width=.4E6, height=.3E6)
+    m.shadedrelief()
+    m.drawcoastlines(color='gray')
+    m.drawstates(color='gray')
 
-#     tnetp.load_state_dict(torch.load("saved_models/upt-constrained-half-day.pt"))
-#     beta0 = tnetp.beta0.data.numpy()[0]
-#     beta1 = tnetp.beta1.data.numpy()
+    # # rescale marker size
+    # mins, maxs = 5, 300
+    # dmin, dmax = data.min() if dmin is None else dmin, data.max() if dmax is None else dmax
+    # print(dmin, dmax)
+    # size = (data - data.min()) / (data.max() - data.min())
+    # size = size * (maxs - mins) + mins
+    # sct  = m.scatter(locs[:, 1], locs[:, 0], latlon=True, alpha=0.5, s=size, c="r")
+    # # sct  = m.scatter(locs[_id, 1], locs[_id, 0], latlon=True, alpha=1., s=10, c="b")
+    # # legend
+    # handles, labels = sct.legend_elements(prop="sizes", alpha=0.6, num=4, 
+    #     func=lambda s: (s - mins) / (maxs - mins) * (dmax - dmin) + dmin)
+    # plt.title(filename)
+    # plt.legend(handles, labels, loc="lower left", title="Num of outages")
 
-#     lag  = 0
-#     K    = beta1.shape[0]
-#     d    = beta1.shape[2]
-#     locs = np.load("data/geolocation.npy")
+    thres = [ .3, .5 ]
+    pairs = [ (k1, k2) for k1 in range(K) for k2 in range(K) 
+        if alpha[k1, k2] > thres[0] and alpha[k1, k2] < thres[1] ]
 
-#     plt.rc('text', usetex=True)
-#     font = {
-#         'family' : 'serif',
-#         'weight' : 'bold',
-#         'size'   : 15}
-#     plt.rc('font', **font)
+    # spectral clustering
+    from sklearn.cluster import spectral_clustering
+    from scipy.sparse import csgraph
+    from numpy import inf, NaN
 
-#     # Make the background map
-#     fig = plt.figure(figsize=(8, 8))
-#     ax  = plt.gca()
-#     m   = Basemap(
-#         projection='lcc', resolution='f', 
-#         lat_0=42.1, lon_0=-71.6,
-#         width=.4E6, height=.3E6)
-#     m.shadedrelief()
-#     m.drawcoastlines(color='gray')
-#     # m.drawcountries(color='gray')
-#     m.drawstates(color='gray')
+    cmap = ["red", "yellow", "green", "blue", "black"]
+    # adj  = np.zeros((model.K, model.K))
+    # for k1, k2 in pairs:
+    #     adj[k1, k2] = alpha[k1, k2]
+    # lap  = csgraph.laplacian(alpha, normed=False)
+    ls   = spectral_clustering(
+        affinity=alpha,
+        n_clusters=4, 
+        assign_labels="kmeans",
+        random_state=0)
 
-#     # prepare a color for each point depending on the beta1 value.
-#     sct = m.scatter(locs[:, 1], locs[:, 0], latlon=True, s=15, alpha=0.1, c="black")
-#     loc_pairs = [ [(x, y), (xi, yi)] for xi, x in enumerate(locs) for yi, y in enumerate(locs) ]
-#     for (x, y), (xi, yi) in tqdm(loc_pairs):
-#         if beta1[xi, yi, 0] > 0.675:
-#             a = [x[1], y[1]]
-#             b = [x[0], y[0]]
-#             print(a)
-#             print(b)
-#             m.plot(a, b, latlon=True, c="black")
+    m.scatter(locs[:, 1], locs[:, 0], s=12, c=[ cmap[l] for l in ls ], latlon=True, alpha=0.5)
 
-#     # divider = make_axes_locatable(ax)
-#     # cax     = divider.append_axes("right", size="5%", pad=0.1)
-#     # plt.colorbar(sct, cax=cax, label=r'$\beta_1$ directed influence to blue dot')
-    
-#     plt.show()
-#     plt.savefig("imgs/network.pdf")
+    xs = [ (locs[k1][1], locs[k2][1]) for k1, k2 in pairs ] 
+    ys = [ (locs[k1][0], locs[k2][0]) for k1, k2 in pairs ]
+    cs = [ alpha[k1, k2] for k1, k2 in pairs ]
+
+    for i, (x, y, c) in enumerate(zip(xs, ys, cs)):
+        # print(i, len(cs), c, alpha.min(), alpha.max())
+        w = (c - thres[0]) / (thres[1] - thres[0]) 
+        m.plot(x, y, linewidth=w/2, color='grey', latlon=True, alpha=0.85)
+    plt.title(filename)
+
+    plt.savefig("imgs/%s.pdf" % filename)
+        
+    # plt.show()
 
 
 
