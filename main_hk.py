@@ -7,51 +7,50 @@ import matplotlib.pyplot as plt
 from plot import plot_data_on_map, plot_2data_on_linechart, plot_beta_net_on_map, error_heatmap
 
 from dataloader import MAdataloader
-from hkstorch import TorchHawkes
+from hkstorch import TorchHawkes, TorchHawkesCovariates
 
 if __name__ == "__main__":
 
     locs    = np.load("data/geolocation.npy")
     loc_ids = locs[:, 2]
-    start_date, obs_outage = MAdataloader(is_training=False)
+    start_date, obs_outage, obs_weather = MAdataloader(is_training=True)
 
-    model = TorchHawkes(d=10, obs=obs_outage, extobs=None)
+    model1 = TorchHawkes(obs=obs_outage)
+    model2 = TorchHawkesCovariates(d=3, obs=obs_outage, covariates=obs_weather)
 
-    # train(model, niter=200, lr=1., log_interval=10)
-    # print("[%s] saving model..." % arrow.now())
-    # torch.save(model.state_dict(), "saved_models/hawkes-upt-mu-subdata.pt")
+    model1.load_state_dict(torch.load("saved_models/hawkes.pt"))
+    model2.load_state_dict(torch.load("saved_models/hawkes_covariates_future.pt"))
 
-    model.load_state_dict(torch.load("saved_models/hawkes-upt-mu.pt"))
+    _, lams1 = model1()
+    lams1    = lams1.detach().numpy()
 
-    _, lams = model()
-    lams    = lams.detach().numpy()
+    _, lams2 = model2()
+    lams2    = lams2.detach().numpy()
 
-    # ---------------------------------------------------
-    #  Plot temporal predictions
+    # # ---------------------------------------------------
+    # #  Plot temporal predictions
 
-    boston_ind = np.where(loc_ids == 199.)[0][0]
-    worces_ind = np.where(loc_ids == 316.)[0][0]
-    spring_ind = np.where(loc_ids == 132.)[0][0]
-    cambri_ind = np.where(loc_ids == 192.)[0][0]
-    print(boston_ind, worces_ind, spring_ind, cambri_ind)
-    plot_2data_on_linechart(start_date, lams.sum(0), obs_outage.sum(0), "Total number of outages over time (testing data)", dayinterval=7)
-    plot_2data_on_linechart(start_date, lams[boston_ind], obs_outage[boston_ind], "Prediction results for Boston, MA (testing data)", dayinterval=7)
-    plot_2data_on_linechart(start_date, lams[worces_ind], obs_outage[worces_ind], "Prediction results for Worcester, MA (testing data)", dayinterval=7)
-    plot_2data_on_linechart(start_date, lams[spring_ind], obs_outage[spring_ind], "Prediction results for Springfield, MA (testing data)", dayinterval=7)
-    plot_2data_on_linechart(start_date, lams[cambri_ind], obs_outage[cambri_ind], "Prediction results for Cambridge, MA (testing data)", dayinterval=7)
-    # ---------------------------------------------------
-
-
+    # boston_ind = np.where(loc_ids == 199.)[0][0]
+    # worces_ind = np.where(loc_ids == 316.)[0][0]
+    # spring_ind = np.where(loc_ids == 132.)[0][0]
+    # cambri_ind = np.where(loc_ids == 192.)[0][0]
+    # print(boston_ind, worces_ind, spring_ind, cambri_ind)
+    # plot_2data_on_linechart(start_date, lams.sum(0), obs_outage.sum(0), "Total number of outages over time (testing data)", dayinterval=7)
+    # plot_2data_on_linechart(start_date, lams[boston_ind], obs_outage[boston_ind], "Prediction results for Boston, MA (testing data)", dayinterval=7)
+    # plot_2data_on_linechart(start_date, lams[worces_ind], obs_outage[worces_ind], "Prediction results for Worcester, MA (testing data)", dayinterval=7)
+    # plot_2data_on_linechart(start_date, lams[spring_ind], obs_outage[spring_ind], "Prediction results for Springfield, MA (testing data)", dayinterval=7)
+    # plot_2data_on_linechart(start_date, lams[cambri_ind], obs_outage[cambri_ind], "Prediction results for Cambridge, MA (testing data)", dayinterval=7)
+    # # ---------------------------------------------------
 
     # ---------------------------------------------------
     #  Plot error matrix
 
     locs_order = np.argsort(loc_ids)
-    error_heatmap(real_data=obs_outage, pred_data=lams, locs_order=locs_order, start_date=start_date, dayinterval=7, modelname="ST-Cov-test")
+    error_heatmap(real_data=obs_outage, pred_data=lams2, base_data=lams1, locs_order=locs_order, start_date=start_date, dayinterval=1, modelname="ST-future-Cov-train")
     # ---------------------------------------------------
 
 
-    
+
 
     # alpha = model.alpha.detach().numpy()
     # plot_beta_net_on_map(model.K, alpha, locs, "Correlation between locations and community structure")

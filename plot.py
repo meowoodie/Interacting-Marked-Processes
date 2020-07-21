@@ -169,14 +169,15 @@ def plot_beta_net_on_map(K, alpha, locs, filename):
     plt.savefig("imgs/%s.pdf" % filename)
 
 
-def error_heatmap(real_data, pred_data, locs_order, start_date, dayinterval=7, modelname="Hawkes"):
+def error_heatmap(real_data, pred_data, base_data, locs_order, start_date, dayinterval=7, modelname="Hawkes"):
 
     n_date = int(real_data.shape[1] / (24 * dayinterval / 3))
     dates  = [ str(start_date.shift(days=i * dayinterval)).split("T")[0] for i in range(n_date + 1) ]
 
-    error_mat0  = (real_data[:, 1:] - real_data[:, :-1]) ** 2
-    error_date0 = (real_data[:, 1:].mean(0) - real_data[:, :-1].mean(0)) ** 2
-    error_city0 = (real_data[:, 1:].mean(1) - real_data[:, :-1].mean(1)) ** 2
+    # error_mat0  = (real_data[:, 1:] - real_data[:, :-1]) ** 2
+    error_mat0  = (real_data - base_data) ** 2
+    error_date0 = error_mat0.mean(0)
+    error_city0 = error_mat0.mean(1)
 
     real_data  = real_data[:, 1:]
     pred_data  = pred_data[:, 1:]
@@ -185,8 +186,8 @@ def error_heatmap(real_data, pred_data, locs_order, start_date, dayinterval=7, m
     n_date     = real_data.shape[1]
 
     error_mat  = (real_data - pred_data) ** 2
-    error_date = (real_data.mean(0) - pred_data.mean(0)) ** 2
-    error_city = (real_data.mean(1) - pred_data.mean(1)) ** 2
+    error_date = error_mat.mean(0)
+    error_city = error_mat.mean(1)
 
     # cities      = [ locs[ind] for ind in locs_order ]
     city_ind    = [ 198, 315, 131, 191, 13, 43 ]
@@ -217,7 +218,7 @@ def error_heatmap(real_data, pred_data, locs_order, start_date, dayinterval=7, m
     rect_date   = [left, bottom_h, width, 0.12]
     rect_city   = [left_h, bottom, 0.12, height]
 
-    with PdfPages("%s.pdf" % modelname) as pdf:
+    with PdfPages("imgs/%s.pdf" % modelname) as pdf:
         # start with a rectangular Figure
         fig = plt.figure(1, figsize=(8, 8))
 
@@ -241,9 +242,9 @@ def error_heatmap(real_data, pred_data, locs_order, start_date, dayinterval=7, m
 
         # the error vector for locs and dates
         ax_city.plot(error_city, np.arange(n_city), c="red", linewidth=2, linestyle="-", label="%s" % modelname, alpha=.8)
-        # ax_city.plot(error_city0, np.arange(n_city), c="grey", linewidth=1.5, linestyle="--", label="Persistence", alpha=.5)
+        ax_city.plot(error_city0, np.arange(n_city), c="grey", linewidth=1.5, linestyle="--", label="Hawkes", alpha=.5)
         ax_date.plot(error_date, c="red", linewidth=2, linestyle="-", label="%s" % modelname, alpha=.8)
-        # ax_date.plot(error_date0, c="grey", linewidth=1.5, linestyle="--", label="Persistence", alpha=.5)
+        ax_date.plot(error_date0, c="grey", linewidth=1.5, linestyle="--", label="Hawkes", alpha=.5)
 
         ax_city.get_yaxis().set_ticks([])
         ax_city.get_xaxis().set_ticks([])
@@ -257,7 +258,7 @@ def error_heatmap(real_data, pred_data, locs_order, start_date, dayinterval=7, m
         plt.figtext(0.91, 0.133, '%.2e' % max(max(error_city), max(error_city0)))
         plt.figtext(0.135, 0.81, '0')
         plt.figtext(0.065, 0.915, '%.2e' % max(max(error_date), max(error_date0)))
-        # plt.legend()
+        plt.legend()
 
         cbaxes = fig.add_axes([left_h, height + left + 0.01, .03, .12])
         cbaxes.get_xaxis().set_ticks([])
