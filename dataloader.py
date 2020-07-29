@@ -17,7 +17,7 @@ feat_list = [
     "016", "017"
 ]
 
-def MAdataloader(is_training=True):
+def MAdataloader(is_training=True, standardization=True):
     """
     data loader for MA data sets including outage sub data set and weather sub data set
     """
@@ -49,20 +49,20 @@ def MAdataloader(is_training=True):
         start_date = arrow.get(datetime(2018, 9, 5))
 
     # data standardization
-    _obs_feats = []
-    for obs in obs_feats:
-        scl = StandardScaler()
-        scl.fit(obs)
-        obs = scl.transform(obs)
-        _obs_feats.append(obs)
-    obs_feats = _obs_feats
+    if standardization:
+        _obs_feats = []
+        for obs in obs_feats:
+            scl = StandardScaler()
+            scl.fit(obs)
+            obs = scl.transform(obs)
+            _obs_feats.append(obs)
+        obs_feats = _obs_feats
 
     # project weather data to the coordinate system that outage data is using
-    obs_feats = [ proj(obs, coord=geo_weather, proj_coord=geo_outage, k=10) for obs in obs_feats ] 
+    obs_feats   = [ proj(obs, coord=geo_weather, proj_coord=geo_outage, k=10) for obs in obs_feats ] 
 
-    obs_outage = avg(obs_outage, N=3).transpose()
+    obs_outage  = avg(obs_outage, N=3).transpose()
     obs_feats   = [ avg(obs, N=3).transpose() for obs in obs_feats ]
     obs_weather = np.stack(obs_feats, axis=2) 
-    # obs_weather = (obs_weather - obs_weather.min()) / (obs_weather.max() - obs_weather.min())
 
     return start_date, obs_outage, obs_weather
