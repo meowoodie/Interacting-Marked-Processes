@@ -6,23 +6,22 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from plot import *
 
-from dataloader import MAdataloader
+from dataloader import dataloader, config
 from hkstorch import TorchHawkes, TorchHawkesNNCovariates
 
 if __name__ == "__main__":
 
-    locs    = np.load("data/geolocation.npy")
+    obs_outage, obs_weather, locs = dataloader(config["MA Mar 2018"])
     loc_ids = locs[:, 2]
-    start_date, obs_outage, obs_weather = MAdataloader(is_training=True)
 
-    model1 = TorchHawkes(obs=obs_outage)
+    # model1 = TorchHawkes(obs=obs_outage)
     model2 = TorchHawkesNNCovariates(d=6, obs=obs_outage, covariates=obs_weather)
 
-    model1.load_state_dict(torch.load("saved_models/hawkes.pt"))
-    model2.load_state_dict(torch.load("saved_models/hawkes_covariates_nn_future_upg_d6.pt"))
+    # model1.load_state_dict(torch.load("saved_models/hawkes.pt"))
+    model2.load_state_dict(torch.load("saved_models/hawkes_covariates_ma_201803_d6.pt"))
 
-    _, lams1 = model1()
-    lams1    = lams1.detach().numpy()
+    # _, lams1 = model1()
+    # lams1    = lams1.detach().numpy()
 
     _, lams2 = model2()
     lams2    = lams2.detach().numpy()
@@ -34,6 +33,7 @@ if __name__ == "__main__":
     # plot_data_exp_decay(obs_outage)
     # plot_data_constant_alpha(obs_outage, loc_ids)
     # ---------------------------------------------------
+    
 
 
     # # ---------------------------------------------------
@@ -57,7 +57,8 @@ if __name__ == "__main__":
     # #  Plot error matrix
 
     # locs_order = np.argsort(loc_ids)
-    # error_heatmap(real_data=obs_outage, pred_data=lams2, base_data=lams1, locs_order=locs_order, start_date=start_date, dayinterval=1, modelname="ST-Cov-NN-future-upt (d=6)")
+    # # error_heatmap(real_data=obs_outage, pred_data=lams2, locs_order=locs_order, start_date=start_date, dayinterval=1, modelname="ST-Cov-NN-future-upt (d=6)")
+    # error_heatmap(real_data=obs_outage, pred_data=lams1, locs_order=locs_order, start_date=start_date, dayinterval=1, modelname="error-Hawkes")
     # # ---------------------------------------------------
 
 
@@ -91,12 +92,11 @@ if __name__ == "__main__":
 
 
 
-    # # ---------------------------------------------------
-    # #  Plot base intensity
+    # ---------------------------------------------------
+    #  Plot base intensity
 
-    # plot_baselines_and_lambdas(model2, obs_outage)
-    # plot_spatial_base(model2, locs, obs_outage)
-    # plot_spatial_lam_minus_base(model2, locs, obs_outage)
+    plot_baselines_and_lambdas(model2, obs_outage)
+    plot_spatial_base(model2, locs, obs_outage)
+    plot_spatial_lam_minus_base(model2, locs, obs_outage)
     plot_spatial_ratio(model2, locs, obs_outage)
     # ---------------------------------------------------
-    # # ---------------------------------------------------

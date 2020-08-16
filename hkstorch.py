@@ -10,12 +10,12 @@ from tqdm import tqdm
 from scipy import sparse
 from sklearn.metrics.pairwise import euclidean_distances
 
-from dataloader import MAdataloader
+from dataloader import dataloader, config
 
-def train(model, niter=1000, lr=1e-1, log_interval=50):
+def train(model, locs, niter=1000, lr=1e-1, log_interval=50):
     """training procedure for one epoch"""
     # coordinates of K locations
-    coords    = np.load("data/geolocation.npy")[:, :2]
+    coords    = locs[:, :2]
     # define model clipper to enforce inequality constraints
     clipper1  = NonNegativeClipper()
     clipper2  = ProximityClipper(coords, k=100)
@@ -255,80 +255,25 @@ class TorchHawkesNNCovariates(TorchHawkes):
         lam = lam1 + self.gamma * mu.clone().squeeze_()
         return lam
 
-        
-
-# class TorchHawkesLinearCovariates(TorchHawkes):
-#     """
-#     PyTorch Module for Hawkes Processes with Externel Observation
-#     """
-
-#     def __init__(self, d, obs, covariates):
-#         """
-#         Denote the number of time units as N, the number of locations as K, and 
-#         the number of externel features as M.
-
-#         Args:
-#         - d:      memory depth
-#         - obs:    event observations    [ N, K ]
-#         - extobs: externel observations [ N, K, M ]
-#         """
-#         TorchHawkes.__init__(self, obs)
-#         # configuration
-#         self.d       = d                        # d: memory depth
-#         K, N, self.M = covariates.shape         # M: number of covariates
-#         assert N == self.N and K == self.K, \
-#             "invalid dimension (%d, %d, %d) of covariates, where N is not %d or K is not %d." % \
-#             (N, K, self.M, self.N, self.K)
-#         # data
-#         self.covs  = torch.Tensor(covariates)   # [ K, N, M ]
-#         # parameter
-#         self.gamma = torch.nn.Parameter(torch.Tensor(torch.ones(1)))
-#         # linear coefficients
-#         self.omega = torch.nn.Parameter(torch.Tensor(self.K, self.d * 2, self.M).uniform_(0, .01))
-#         self.hmu   = 0
-
-#     def _lambda(self, _t):
-#         """
-#         Conditional intensity function at time `t`
-
-#         Args:
-#         - _t:  index of time, e.g., 0, 1, ..., N (integer)
-#         Return:
-#         - lam: a vector of lambda value at time t and location k = 0, 1, ..., K [ K ]
-#         """
-#         # self-exciting effects
-#         lam1 = TorchHawkes._lambda(self, _t)
-#         # covariate effects
-#         # NOTE: only consider past
-#         # if _t < self.d:
-#         if _t < self.d or _t + self.d > self.N:
-#             lam2 = torch.zeros(self.K)                              # [ K ]
-#         else:
-#             # covariates
-#             X    = self.covs[:, _t - self.d:_t + self.d, :].clone() # [ K, d * 2, M ]
-#             lam2 = (X * self.omega).sum(2).sum(1)                   # [ K ]
-#         lam = self.gamma * lam1 + torch.nn.functional.softplus(lam2)
-#         return lam
-
 
 
 if __name__ == "__main__":
+    
     torch.manual_seed(1)
     
     from plot import *
 
     # load data
-    locs    = np.load("data/geolocation.npy")
+    obs_outage, obs_weather, locs = dataloader(config["MA Mar 2018"])
     loc_ids = locs[:, 2]
-    start_date, obs_outage, obs_weather = MAdataloader(is_training=True)
     print(obs_outage.shape)
     print(obs_weather.shape)
 
     # training
     model = TorchHawkesNNCovariates(d=6, obs=obs_outage, covariates=obs_weather)
-    train(model, niter=1000, lr=1., log_interval=10)
+    train(model, locs=locs, niter=1000, lr=1., log_interval=10)
     print("[%s] saving model..." % arrow.now())
-    torch.save(model.state_dict(), "saved_models/hawkes_covariates_nn_future_upg_d6.pt")
+    torch.save(model.state_dict(), "saved_models/hawkes_covariates_ma_201803_d6.pt")
     print(model.hbeta.detach().numpy())
 
     # evaluation
@@ -340,9 +285,9 @@ if __name__ == "__main__":
     worces_ind = np.where(loc_ids == 316.)[0][0]
     spring_ind = np.where(loc_ids == 132.)[0][0]
     cambri_ind = np.where(loc_ids == 192.)[0][0]
-    plot_2data_on_linechart(start_date, lams.sum(0), obs_outage.sum(0), "Prediction of of ST-Cov-NN (d=6) for total outages over time (training data)", dayinterval=1)
-    plot_2data_on_linechart(start_date, lams[boston_ind], obs_outage[boston_ind], "Prediction of ST-Cov-NN (d=6) for Boston, MA (training data)", dayinterval=1)
-    plot_2data_on_linechart(start_date, lams[worces_ind], obs_outage[worces_ind], "Prediction of ST-Cov-NN (d=6) for Worcester, MA (training data)", dayinterval=1)
-    plot_2data_on_linechart(start_date, lams[spring_ind], obs_outage[spring_ind], "Prediction of ST-Cov-NN (d=6) for Springfield, MA (training data)", dayinterval=1)
-    plot_2data_on_linechart(start_date, lams[cambri_ind], obs_outage[cambri_ind], "Prediction of ST-Cov-NN (d=6) for Cambridge, MA (training data)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams.sum(0), obs_outage.sum(0), "Prediction of total outages over time", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[boston_ind], obs_outage[boston_ind], "Prediction for Boston, MA", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[worces_ind], obs_outage[worces_ind], "Prediction for Worcester, MA", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[spring_ind], obs_outage[spring_ind], "Prediction for Springfield, MA", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[cambri_ind], obs_outage[cambri_ind], "Prediction for Cambridge, MA", dayinterval=1)
     

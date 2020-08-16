@@ -142,9 +142,9 @@ def plot_2data_on_linechart(start_date, data1, data2, filename, dmin=None, dmax=
     Args:
     - data: [ n_timeslots ]
     """
-
-    n_date = int(len(data1) / (24 * dayinterval / 3))
-    dates  = [ str(start_date.shift(days=i * dayinterval)).split("T")[0] for i in range(n_date + 1) ]
+    start_date = arrow.get(start_date, "YYYY-MM-DD HH:mm:ss")
+    n_date     = int(len(data1) / (24 * dayinterval / 3))
+    dates      = [ str(start_date.shift(days=i * dayinterval)).split("T")[0] for i in range(n_date + 1) ]
 
     plt.rc('text', usetex=True)
     font = {
@@ -165,13 +165,12 @@ def plot_2data_on_linechart(start_date, data1, data2, filename, dmin=None, dmax=
         fig.tight_layout()
         pdf.savefig(fig)
 
-def error_heatmap(real_data, pred_data, base_data, locs_order, start_date, dayinterval=7, modelname="Hawkes"):
+def error_heatmap(real_data, pred_data, locs_order, start_date, dayinterval=7, modelname="Hawkes"):
 
     n_date = int(real_data.shape[1] / (24 * dayinterval / 3))
     dates  = [ str(start_date.shift(days=i * dayinterval)).split("T")[0] for i in range(n_date + 1) ]
 
     error_mat0  = (real_data[:, 1:] - real_data[:, :-1]) ** 2
-    # error_mat0  = (real_data - base_data) ** 2
     error_date0 = error_mat0.mean(0)
     error_city0 = error_mat0.mean(1)
 
@@ -237,9 +236,9 @@ def error_heatmap(real_data, pred_data, base_data, locs_order, start_date, dayin
         ax_imshow.set_xlabel("Date")
 
         # the error vector for locs and dates
-        ax_city.plot(error_city, np.arange(n_city), c="red", linewidth=2, linestyle="-", label="Our model", alpha=.8)
+        ax_city.plot(error_city, np.arange(n_city), c="red", linewidth=2, linestyle="-", label="Hawkes", alpha=.8)
         ax_city.plot(error_city0, np.arange(n_city), c="grey", linewidth=1.5, linestyle="--", label="Persistence", alpha=.5)
-        ax_date.plot(error_date, c="red", linewidth=2, linestyle="-", label="Our model", alpha=.8)
+        ax_date.plot(error_date, c="red", linewidth=2, linestyle="-", label="Hawkes", alpha=.8)
         ax_date.plot(error_date0, c="grey", linewidth=1.5, linestyle="--", label="Persistence", alpha=.5)
 
         ax_city.get_yaxis().set_ticks([])

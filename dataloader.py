@@ -17,38 +17,116 @@ feat_list = [
     "016", "017"
 ]
 
-def MAdataloader(is_training=True, standardization=True):
+config = {
+    "MA Mar 2018": {
+        # outage configurations
+        "outage_path":    "maoutage_2018.npy",
+        "outage_startt":  "2017-12-31 00:00:00",
+        "outage_endt":    "2019-01-15 04:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "maweather-201803",
+        "weather_startt": "2018-03-01 00:00:00",
+        "weather_endt":   "2018-03-31 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      [
+            "001", "002", "003", "004", "005",
+            "006", "007", "008", "009", "010",
+            "011", "012", "013", "014", "015",
+            "016", "017"],
+        # time window
+        "_startt":        "2018-03-01 00:00:00",
+        "_endt":          "2018-03-17 00:00:00"
+    },
+    # "MA Oct 2019": {
+    #     "weather_path":  "data/maweather-201910",
+    #     # from 2019-01-01 00:00:00 to 2019-11-30 23:45:00
+    #     # outage indices from 24 * 24 * 4 + 4 = 2308 to 2308 + 15 * 24 * 4 = 3748 (15 mins per index)
+    #     # "outage_sind":  0,
+    #     # "outage_eind":  0,
+    #     # weather indices from 24 * 24 * 4 + 4 = 2308 to 2308 + 15 * 24 * 4 = 3748
+    #     # "weather_sind": 0,
+    #     # "weather_eind": 0,
+    #     "weather_startt": "2017-12-31 00:00:00",
+    #     "weather_endt":   "2019-01-15 04:45:00",
+    #     "_startt":        "2018-03-01 00:00:00",
+    #     "_endt":          "2018-03-17 00:00:00",
+    #     "outage_freq":   15 * 60,                  # seconds per recording
+    #     "start_date":   [ 2018, 3, 1  ],
+    #     "end_date":     [ 2018, 3, 31 ]
+    # }
+}
+
+
+
+def load_outage(config, N=4):
+    # load geo locations appeared in outage data
+    geo_outage = np.load("data/geolocation_351.npy")
+    # load outage data
+    print("[%s] reading outage data from data/%s ..." % (arrow.now(), config["outage_path"]))
+    obs_outage = np.load("data/%s" % config["outage_path"])
+    print("[%s] outage data with shape %s are loaded." % (arrow.now(), obs_outage.shape))
+
+    # check if the start date and end date of outage data
+    freq       = config["outage_freq"]
+    startt     = arrow.get(config["outage_startt"], "YYYY-MM-DD HH:mm:ss")
+    endt       = arrow.get(config["outage_endt"], "YYYY-MM-DD HH:mm:ss")
+    assert int((endt.timestamp - startt.timestamp) / freq + 1) == obs_outage.shape[0], "incorrect number of recordings or incorrect dates."
+
+    # select data in the time window
+    start_date = arrow.get(config["_startt"], "YYYY-MM-DD HH:mm:ss")
+    end_date   = arrow.get(config["_endt"], "YYYY-MM-DD HH:mm:ss")
+    startind   = int((start_date.timestamp - startt.timestamp) / freq)
+    endind     = int((end_date.timestamp - startt.timestamp) / freq)
+    obs_outage = obs_outage[startind:endind+1, :] # [ n_times, n_locations ]
+    print("[%s] outage data with shape %s are extracted, from %s (ind: %d) to %s (ind: %d)" % \
+        (arrow.now(), obs_outage.shape, start_date, startind, end_date, endind))
+
+    # rescale outage data
+    obs_outage = avg(obs_outage, N=N)
+
+    return obs_outage, geo_outage
+
+
+
+def load_weather(config):
+    # load geo locations appeared in weather data
+    geo_weather = np.load("data/weathergeolocations.npy")
+    # load outage data
+    print("[%s] reading weather data from data/%s ..." % (arrow.now(), config["weather_path"]))
+    obs_feats  = [ np.load("data/%s/%s-feat%s.npy" % (config["weather_path"], config["weather_path"], feat)) for feat in config["feat_list"] ]
+    obs_feats  = np.stack(obs_feats, 0)
+    print("[%s] weather data with shape %s are loaded." % (arrow.now(), obs_feats.shape))
+
+    # check if the start date and end date of weather data
+    freq       = config["weather_freq"]
+    startt     = arrow.get(config["weather_startt"], "YYYY-MM-DD HH:mm:ss")
+    endt       = arrow.get(config["weather_endt"], "YYYY-MM-DD HH:mm:ss")
+    assert int((endt.timestamp - startt.timestamp) / freq + 1) == obs_feats.shape[1], "incorrect number of recordings or incorrect dates."
+
+    # select data in the time window
+    start_date = arrow.get(config["_startt"], "YYYY-MM-DD HH:mm:ss")
+    end_date   = arrow.get(config["_endt"], "YYYY-MM-DD HH:mm:ss")
+    startind   = int((start_date.timestamp - startt.timestamp) / freq)
+    endind     = int((end_date.timestamp - startt.timestamp) / freq)
+    obs_feats  = obs_feats[:, startind:endind+1, :] # [ n_feats, n_times, n_locations ]
+    print("[%s] weather data with shape %s are extracted, from %s (ind: %d) to %s (ind: %d)" % \
+        (arrow.now(), obs_feats.shape, start_date, startind, end_date, endind))
+
+    return obs_feats, geo_weather
+
+
+def dataloader(config, standardization=True):
     """
     data loader for MA data sets including outage sub data set and weather sub data set
-    """
-    # geolocation for weather data
-    geo_weather = np.load("data/weathergeolocations.npy")
-    geo_outage  = np.load("data/geolocation_new.npy")[:, :2]
-    # from 2018-02-05 22:45:00 to 2019-01-15 04:45:00
-    obs_outage = np.load("data/maoutage_new.npy")
-    # from 2018-03-01 00:00:00 to 2018-03-31 23:00:00
-    obs_feats  = [ np.load("data/maweather-feat%s.npy" % feat) for feat in feat_list ]
 
-    if is_training:
-        # training time window
-        # from 2018-03-01 00:00:00 to 2018-03-31 23:00:00
-        # outage indices from 24 * 24 * 4 + 4 = 2308 to 2308 + 15 * 24 * 4 = 3748
-        # wind indices from 0 to 360
-        obs_outage = avg(obs_outage[2308:3748], N=4)
-        obs_feats  = [ obs[:360] for obs in obs_feats ]
-        # nzero_inds = np.nonzero(obs_wind.sum(axis=1))[0]
-        start_date = arrow.get(datetime(2018, 3, 1))
-    else:
-        # testing time window
-        # from 2018-09-05 00:00:00 to 2018-11-19 00:00:00
-        # (24 + 188) * 24 * 4 + 4 = 20356 to (24 + 263) * 24 * 4 + 4 = 27556
-        obs_outage = avg(obs_outage[20356:27556], N=4)
-        # TODO: make testing weather data available soon
-        obs_feats  = [ obs[:360] for obs in obs_feats ]
-        # nzero_inds = np.nonzero(obs_wind.sum(axis=1))[0]
-        start_date = arrow.get(datetime(2018, 9, 5))
+    - season: summer or winter
+    """
+    obs_outage, geo_outage = load_outage(config)
+    obs_feats, geo_weather = load_weather(config)
 
     # data standardization
+    print("[%s] weather data standardization ..." % arrow.now())
     if standardization:
         _obs_feats = []
         for obs in obs_feats:
@@ -59,10 +137,18 @@ def MAdataloader(is_training=True, standardization=True):
         obs_feats = _obs_feats
 
     # project weather data to the coordinate system that outage data is using
-    obs_feats   = [ proj(obs, coord=geo_weather, proj_coord=geo_outage, k=10) for obs in obs_feats ] 
+    print("[%s] weather data projection ..." % arrow.now())
+    obs_feats   = [ proj(obs, coord=geo_weather, proj_coord=geo_outage[:, :2], k=10) for obs in obs_feats ] 
 
-    obs_outage  = avg(obs_outage, N=3).transpose()
-    obs_feats   = [ avg(obs, N=3).transpose() for obs in obs_feats ]
-    obs_weather = np.stack(obs_feats, axis=2) 
+    obs_outage  = avg(obs_outage, N=3).transpose()                   # [ n_locations, n_times ]
+    obs_feats   = [ avg(obs, N=3).transpose() for obs in obs_feats ] # ( n_feats, [ n_locations, n_times ] )
+    obs_weather = np.stack(obs_feats, 2)                             # [ n_locations, n_times, n_feats ]
 
-    return start_date, obs_outage, obs_weather
+    # plt.plot(obs_outage.sum(0))
+    # plt.plot(obs_weather[:, :, 0].sum(0))
+    # plt.show()
+
+    return obs_outage, obs_weather, geo_outage
+
+if __name__ == "__main__":
+    dataloader(config["MA Mar 2018"], standardization=False)
