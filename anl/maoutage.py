@@ -11,7 +11,7 @@ from tqdm import tqdm
 # read data into list
 data     = []
 counter  = 0
-rootpath = "/Users/woodie/Desktop/outagex/maoutagex-2018"
+rootpath = "/Users/woodie/Desktop/outagex/maoutagex_201901-11_p"
 print("[%s] reading data into data frame ..." % arrow.now())
 for filename in tqdm(os.listdir(rootpath)):
     if filename.endswith(".h5"):
@@ -35,7 +35,7 @@ for filename in tqdm(os.listdir(rootpath)):
         if len(outage) == 351: 
             data.append([t.timestamp] + outage)
 
-np.save("data/geolocation_351.npy", loc)
+# np.save("data/geolocation_351.npy", loc)
 
 print("[%s] sorting the list by their timestamp ..." % arrow.now())
 data = np.array(data)
@@ -55,4 +55,4 @@ mat        = np.zeros((N, 351), np.int32)
 for di, mi in tqdm(enumerate(data[:, 0])):
     mat[mi, :] = data[di, 1:]
 
-np.save("data/maoutage_2018.npy", mat)
+np.save("data/maoutage_2019.npy", mat)

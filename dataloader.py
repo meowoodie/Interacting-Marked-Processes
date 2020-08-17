@@ -38,23 +38,66 @@ config = {
         "_startt":        "2018-03-01 00:00:00",
         "_endt":          "2018-03-17 00:00:00"
     },
-    # "MA Oct 2019": {
-    #     "weather_path":  "data/maweather-201910",
-    #     # from 2019-01-01 00:00:00 to 2019-11-30 23:45:00
-    #     # outage indices from 24 * 24 * 4 + 4 = 2308 to 2308 + 15 * 24 * 4 = 3748 (15 mins per index)
-    #     # "outage_sind":  0,
-    #     # "outage_eind":  0,
-    #     # weather indices from 24 * 24 * 4 + 4 = 2308 to 2308 + 15 * 24 * 4 = 3748
-    #     # "weather_sind": 0,
-    #     # "weather_eind": 0,
-    #     "weather_startt": "2017-12-31 00:00:00",
-    #     "weather_endt":   "2019-01-15 04:45:00",
-    #     "_startt":        "2018-03-01 00:00:00",
-    #     "_endt":          "2018-03-17 00:00:00",
-    #     "outage_freq":   15 * 60,                  # seconds per recording
-    #     "start_date":   [ 2018, 3, 1  ],
-    #     "end_date":     [ 2018, 3, 31 ]
-    # }
+    "MA Oct 2018": {
+        # outage configurations
+        "outage_path":    "maoutage_2018.npy",
+        "outage_startt":  "2017-12-31 00:00:00",
+        "outage_endt":    "2019-01-15 04:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "maweather-201810",
+        "weather_startt": "2018-10-01 00:00:00",
+        "weather_endt":   "2018-10-31 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      [
+            "001", "002", "003", "004", "005",
+            "006", "007", "008", "009", "010",
+            "011", "012", "013", "014", "015",
+            "016", "017"],
+        # time window
+        "_startt":        "2018-10-01 00:00:00",
+        "_endt":          "2018-10-31 00:00:00"
+    },
+    "MA Feb 2019": {
+        # outage configurations
+        "outage_path":    "maoutage_2019.npy",
+        "outage_startt":  "2019-01-01 00:00:00",
+        "outage_endt":    "2019-11-30 23:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "maweather-201902",
+        "weather_startt": "2019-02-01 00:00:00",
+        "weather_endt":   "2019-02-28 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      [
+            "001", "002", "003", "004", "005",
+            "006", "007", "008", "009", "010",
+            "011", "012", "013", "014", "015",
+            "016", "017"],
+        # time window
+        "_startt":        "2019-02-01 00:00:00",
+        "_endt":          "2019-02-28 00:00:00"
+    },
+    "MA Oct 2019": {
+        # outage configurations
+        "outage_path":    "maoutage_2019.npy",
+        "outage_startt":  "2019-01-01 00:00:00",
+        "outage_endt":    "2019-11-30 23:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "maweather-201910",
+        "weather_startt": "2019-10-01 00:00:00",
+        "weather_endt":   "2019-10-31 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      [
+            "001", "002", "003", "004", "005",
+            "006", "007", "008", "009", "010",
+            "011", "012", "013", "014", "015",
+            "016", "017"],
+        # time window
+        "_startt":        "2019-10-01 00:00:00",
+        "_endt":          "2019-10-31 00:00:00"
+    }
 }
 
 
@@ -138,17 +181,19 @@ def dataloader(config, standardization=True):
 
     # project weather data to the coordinate system that outage data is using
     print("[%s] weather data projection ..." % arrow.now())
-    obs_feats   = [ proj(obs, coord=geo_weather, proj_coord=geo_outage[:, :2], k=10) for obs in obs_feats ] 
+    obs_feats   = [ proj(obs, coord=geo_weather, proj_coord=geo_outage[:, :2], k=10) for obs in obs_feats ]
 
     obs_outage  = avg(obs_outage, N=3).transpose()                   # [ n_locations, n_times ]
     obs_feats   = [ avg(obs, N=3).transpose() for obs in obs_feats ] # ( n_feats, [ n_locations, n_times ] )
     obs_weather = np.stack(obs_feats, 2)                             # [ n_locations, n_times, n_feats ]
 
-    # plt.plot(obs_outage.sum(0))
-    # plt.plot(obs_weather[:, :, 0].sum(0))
+    # outage_show  = (obs_outage.sum(0) - obs_outage.sum(0).min()) / (obs_outage.sum(0).max() - obs_outage.sum(0).min())
+    # weather_show = (obs_weather[:, :, 0].sum(0) - obs_weather[:, :, 0].sum(0).min()) / (obs_weather[:, :, 0].sum(0).max() - obs_weather[:, :, 0].sum(0).min())
+    # plt.plot(outage_show)
+    # plt.plot(weather_show)
     # plt.show()
 
     return obs_outage, obs_weather, geo_outage
 
 if __name__ == "__main__":
-    dataloader(config["MA Mar 2018"], standardization=False)
+    dataloader(config["MA Oct 2019"], standardization=False)

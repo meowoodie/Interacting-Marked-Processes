@@ -11,14 +11,14 @@ from hkstorch import TorchHawkes, TorchHawkesNNCovariates
 
 if __name__ == "__main__":
 
-    obs_outage, obs_weather, locs = dataloader(config["MA Mar 2018"])
+    obs_outage, obs_weather, locs = dataloader(config["MA Oct 2019"])
     loc_ids = locs[:, 2]
 
     # model1 = TorchHawkes(obs=obs_outage)
     model2 = TorchHawkesNNCovariates(d=6, obs=obs_outage, covariates=obs_weather)
 
     # model1.load_state_dict(torch.load("saved_models/hawkes.pt"))
-    model2.load_state_dict(torch.load("saved_models/hawkes_covariates_ma_201803_d6.pt"))
+    model2.load_state_dict(torch.load("saved_models/hawkes_covariates_ma_201810_d6.pt"))
 
     # _, lams1 = model1()
     # lams1    = lams1.detach().numpy()
@@ -39,16 +39,15 @@ if __name__ == "__main__":
     # # ---------------------------------------------------
     # #  Plot temporal predictions
 
-    # boston_ind = np.where(loc_ids == 199.)[0][0]
-    # worces_ind = np.where(loc_ids == 316.)[0][0]
-    # spring_ind = np.where(loc_ids == 132.)[0][0]
-    # cambri_ind = np.where(loc_ids == 192.)[0][0]
-    # print(boston_ind, worces_ind, spring_ind, cambri_ind)
-    # plot_2data_on_linechart(start_date, lams.sum(0), obs_outage.sum(0), "Total number of outages over time (testing data)", dayinterval=7)
-    # plot_2data_on_linechart(start_date, lams[boston_ind], obs_outage[boston_ind], "Prediction results for Boston, MA (testing data)", dayinterval=7)
-    # plot_2data_on_linechart(start_date, lams[worces_ind], obs_outage[worces_ind], "Prediction results for Worcester, MA (testing data)", dayinterval=7)
-    # plot_2data_on_linechart(start_date, lams[spring_ind], obs_outage[spring_ind], "Prediction results for Springfield, MA (testing data)", dayinterval=7)
-    # plot_2data_on_linechart(start_date, lams[cambri_ind], obs_outage[cambri_ind], "Prediction results for Cambridge, MA (testing data)", dayinterval=7)
+    boston_ind = np.where(loc_ids == 199.)[0][0]
+    worces_ind = np.where(loc_ids == 316.)[0][0]
+    spring_ind = np.where(loc_ids == 132.)[0][0]
+    cambri_ind = np.where(loc_ids == 192.)[0][0]
+    plot_2data_on_linechart(config["MA Oct 2019"]["_startt"], lams2.sum(0), obs_outage.sum(0), "Prediction of total outages in MA (Oct 2019)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2019"]["_startt"], lams2[boston_ind], obs_outage[boston_ind], "Prediction for Boston, MA (Oct 2019)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2019"]["_startt"], lams2[worces_ind], obs_outage[worces_ind], "Prediction for Worcester, MA (Oct 2019)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2019"]["_startt"], lams2[spring_ind], obs_outage[spring_ind], "Prediction for Springfield, MA (Oct 2019)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2019"]["_startt"], lams2[cambri_ind], obs_outage[cambri_ind], "Prediction for Cambridge, MA (Oct 2019)", dayinterval=1)
     # # ---------------------------------------------------
 
 
@@ -92,11 +91,11 @@ if __name__ == "__main__":
 
 
 
-    # ---------------------------------------------------
-    #  Plot base intensity
+    # # ---------------------------------------------------
+    # #  Plot base intensity
 
-    plot_baselines_and_lambdas(model2, obs_outage)
-    plot_spatial_base(model2, locs, obs_outage)
-    plot_spatial_lam_minus_base(model2, locs, obs_outage)
-    plot_spatial_ratio(model2, locs, obs_outage)
-    # ---------------------------------------------------
+    # plot_baselines_and_lambdas(model2, obs_outage)
+    # plot_spatial_base(model2, locs, obs_outage)
+    # plot_spatial_lam_minus_base(model2, locs, obs_outage)
+    # plot_spatial_ratio(model2, locs, obs_outage)
+    # # ---------------------------------------------------

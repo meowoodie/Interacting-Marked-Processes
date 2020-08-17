@@ -264,7 +264,7 @@ if __name__ == "__main__":
     from plot import *
 
     # load data
-    obs_outage, obs_weather, locs = dataloader(config["MA Mar 2018"])
+    obs_outage, obs_weather, locs = dataloader(config["MA Oct 2018"])
     loc_ids = locs[:, 2]
     print(obs_outage.shape)
     print(obs_weather.shape)
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     model = TorchHawkesNNCovariates(d=6, obs=obs_outage, covariates=obs_weather)
     train(model, locs=locs, niter=1000, lr=1., log_interval=10)
     print("[%s] saving model..." % arrow.now())
-    torch.save(model.state_dict(), "saved_models/hawkes_covariates_ma_201803_d6.pt")
+    torch.save(model.state_dict(), "saved_models/hawkes_covariates_ma_201810_d6.pt")
     print(model.hbeta.detach().numpy())
 
     # evaluation
@@ -285,9 +285,9 @@ if __name__ == "__main__":
     worces_ind = np.where(loc_ids == 316.)[0][0]
     spring_ind = np.where(loc_ids == 132.)[0][0]
     cambri_ind = np.where(loc_ids == 192.)[0][0]
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams.sum(0), obs_outage.sum(0), "Prediction of total outages over time", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[boston_ind], obs_outage[boston_ind], "Prediction for Boston, MA", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[worces_ind], obs_outage[worces_ind], "Prediction for Worcester, MA", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[spring_ind], obs_outage[spring_ind], "Prediction for Springfield, MA", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[cambri_ind], obs_outage[cambri_ind], "Prediction for Cambridge, MA", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2018"]["_startt"], lams.sum(0), obs_outage.sum(0), "Prediction of total outages in MA (Oct 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2018"]["_startt"], lams[boston_ind], obs_outage[boston_ind], "Prediction for Boston, MA (Oct 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2018"]["_startt"], lams[worces_ind], obs_outage[worces_ind], "Prediction for Worcester, MA (Oct 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2018"]["_startt"], lams[spring_ind], obs_outage[spring_ind], "Prediction for Springfield, MA (Oct 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Oct 2018"]["_startt"], lams[cambri_ind], obs_outage[cambri_ind], "Prediction for Cambridge, MA (Oct 2018)", dayinterval=1)
     
