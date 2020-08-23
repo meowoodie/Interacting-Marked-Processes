@@ -11,7 +11,7 @@ from tqdm import tqdm
 # read data into list
 data     = []
 counter  = 0
-rootpath = "/Users/woodie/Desktop/outagex/maoutagex_2018"
+rootpath = "/Users/woodie/Desktop/gaweather/gaweather_201809-11_p"
 print("[%s] reading data into data frame ..." % arrow.now())
 for filename in tqdm(os.listdir(rootpath)):
     if filename.endswith(".h5"):
@@ -27,22 +27,15 @@ for filename in tqdm(os.listdir(rootpath)):
         idx     = idx[order]
         outage  = outage[order]
         loc     = loc[order, :]
-
-        # # remove duplicate entries
-        # _, _idx = np.unique(idx, return_index=True)
-        # outage  = outage[_idx].tolist()
-
-        # merge duplicate entries
-        # https://stackoverflow.com/questions/34598020/consolidate-duplicate-rows-of-an-array
+        # remove duplicate entries
         _, _idx = np.unique(idx, return_index=True)
-        outage  = np.add.reduceat(outage, _idx).tolist()\
-
         loc     = loc[_idx, :]
+        outage  = outage[_idx].tolist()
         # only keep complete data entry
-        if len(outage) == 351: 
+        if len(outage) == 665: 
             data.append([t.timestamp] + outage)
 
-# np.save("data/geolocation_351.npy", loc)
+np.save("data/ga_geolocation_665.npy", loc)
 
 print("[%s] sorting the list by their timestamp ..." % arrow.now())
 data = np.array(data)
@@ -58,8 +51,8 @@ start_t    = data[0, 0]  # start time
 end_t      = data[-1, 0] # end time
 data[:, 0] = (data[:, 0] - start_t) / (15 * 60)     # every 15 mins per event
 N          = int((end_t - start_t) / (15 * 60)) + 1 # total number of events
-mat        = np.zeros((N, 351), np.int32)
+mat        = np.zeros((N, 665), np.int32)
 for di, mi in tqdm(enumerate(data[:, 0])):
     mat[mi, :] = data[di, 1:]
 
-np.save("data/maoutage_2018.npy", mat)
+np.save("data/gaoutage_201809-11.npy", mat)

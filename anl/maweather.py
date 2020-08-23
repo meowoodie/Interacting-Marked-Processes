@@ -58,7 +58,7 @@ def preproc_weather(fk, rootpath, savepath):
     np.save(savepath, mat)
 
 if __name__ == "__main__":
-    fk_list = [ "018", "019", "020", "021", "022", "023", "024", "025", "026", "027", "028", "029", "030", "031", "032", "033", "034" ]
+    fk_list = [ "048", "052", "053" ]
 
     for fk in fk_list:
         preproc_weather(
