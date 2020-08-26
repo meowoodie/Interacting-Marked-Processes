@@ -10,11 +10,19 @@ from datetime import datetime
 
 from utils import avg, proj #, scale_down_data
 
+# feat_list = [
+#     "001", "002", "003", "004", "005", "006", "007", "008", "026", "027",
+#     "028", "029", "030", "031", "032", "033", "034", "035", "036", "037",
+#     "038", "039", "043", "044", "045", "047", "049", "050", "051", "052",
+#     "053", "054", "056", "059", "060", "061", "073", "078", "079", "080",
+#     "082", "101", "102"
+# ]
+
 feat_list = [
-    "001", "002", "003", "004", "005",
-    "006", "007", "008", "009", "010",
-    "011", "012", "013", "014", "015",
-    "016", "017"
+    "001", "002", "003", "004", "005", "006", "007", "008", "026", "027", 
+    "028", "029", "030", "031", "032", "033", "036", "037", "038", "039", 
+    "043", "044", "045", "047", "049", "052", "053", "054", "056", "059", 
+    "060", "061", "079", "101", "102"
 ]
 
 config = {
@@ -29,14 +37,26 @@ config = {
         "weather_startt": "2018-03-01 00:00:00",
         "weather_endt":   "2018-03-31 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
-        "feat_list":      [
-            "001", "002", "003", "004", "005",
-            "006", "007", "008", "009", "010",
-            "011", "012", "013", "014", "015",
-            "016", "017"],
+        "feat_list":      feat_list,
         # time window
         "_startt":        "2018-03-01 00:00:00",
         "_endt":          "2018-03-17 00:00:00"
+    },
+    "Normal MA Mar 2018": {
+        # outage configurations
+        "outage_path":    "maoutage_2018.npy",
+        "outage_startt":  "2017-12-31 00:00:00",
+        "outage_endt":    "2019-01-15 04:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "maweather-201803",
+        "weather_startt": "2018-03-01 00:00:00",
+        "weather_endt":   "2018-03-31 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      feat_list,
+        # time window
+        "_startt":        "2018-03-01 00:00:00",
+        "_endt":          "2018-03-31 00:00:00"
     },
     "MA Oct 2018": {
         # outage configurations
@@ -159,7 +179,8 @@ def load_weather(config):
     return obs_feats, geo_weather
 
 
-def dataloader(config, standardization=True):
+
+def dataloader(config, standardization=True, outageN=3, weatherN=3):
     """
     data loader for MA data sets including outage sub data set and weather sub data set
 
@@ -183,9 +204,9 @@ def dataloader(config, standardization=True):
     print("[%s] weather data projection ..." % arrow.now())
     obs_feats   = [ proj(obs, coord=geo_weather, proj_coord=geo_outage[:, :2], k=10) for obs in obs_feats ]
 
-    obs_outage  = avg(obs_outage, N=3).transpose()                   # [ n_locations, n_times ]
-    obs_feats   = [ avg(obs, N=3).transpose() for obs in obs_feats ] # ( n_feats, [ n_locations, n_times ] )
-    obs_weather = np.stack(obs_feats, 2)                             # [ n_locations, n_times, n_feats ]
+    obs_outage  = avg(obs_outage, N=outageN).transpose()                    # [ n_locations, n_times ]
+    obs_feats   = [ avg(obs, N=weatherN).transpose() for obs in obs_feats ] # ( n_feats, [ n_locations, n_times ] )
+    obs_weather = np.stack(obs_feats, 2)                                    # [ n_locations, n_times, n_feats ]
 
     # outage_show  = (obs_outage.sum(0) - obs_outage.sum(0).min()) / (obs_outage.sum(0).max() - obs_outage.sum(0).min())
     # weather_show = (obs_weather[:, :, 0].sum(0) - obs_weather[:, :, 0].sum(0).min()) / (obs_weather[:, :, 0].sum(0).max() - obs_weather[:, :, 0].sum(0).min())
@@ -194,6 +215,8 @@ def dataloader(config, standardization=True):
     # plt.show()
 
     return obs_outage, obs_weather, geo_outage
+
+
 
 if __name__ == "__main__":
     dataloader(config["MA Oct 2019"], standardization=False)
