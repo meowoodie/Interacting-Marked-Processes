@@ -4,6 +4,8 @@
 import arrow
 import random
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.cluster import KMeans
 
@@ -69,3 +71,10 @@ def proj(mat, coord, proj_coord, k=10):
 #         loc_inds        = np.where(kmeans.labels_ == _id)[0]
 #         newdata[:, _id] = data[:, loc_inds].mean(axis=1)
 #     return newdata, kmeans.cluster_centers_
+
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+    return new_cmap

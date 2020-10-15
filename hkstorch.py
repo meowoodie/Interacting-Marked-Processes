@@ -133,8 +133,8 @@ class TorchHawkes(torch.nn.Module):
         self.K, self.N = obs.shape
         # parameters
         self.hmu    = self.obs.mean(1) / 10 + 1e-2
-        # self.hbeta  = torch.nn.Parameter(torch.Tensor(self.K).uniform_(0, 1))
-        self.hbeta  = torch.nn.Parameter(torch.Tensor([2]))
+        self.hbeta  = torch.nn.Parameter(torch.Tensor(self.K).uniform_(1, 3))
+        # self.hbeta  = torch.nn.Parameter(torch.Tensor([2]))
         self.halpha = torch.nn.Parameter(torch.Tensor(self.K, self.K).uniform_(0, .01))
 
     def _lambda(self, _t):
@@ -146,14 +146,17 @@ class TorchHawkes(torch.nn.Module):
         Return:
         - lam: a vector of lambda value at time t and location k = 0, 1, ..., K [ K ]
         """
-        # current time and the past 
-        t      = torch.ones(_t, dtype=torch.int32) * _t    # [ t ]
-        tp     = torch.arange(_t)                          # [ t ]
-        # self-exciting effect
-        kernel = self._exp_kernel(self.hbeta, t, tp)       # [ t ]
-        Nt     = self.obs[:, :_t].clone()                  # [ K, t ]
-        lam1   = torch.mm(self.halpha, Nt * kernel).sum(1) # [ K ]
-        lam    = torch.nn.functional.softplus(self.hmu + lam1)
+        if _t > 0:
+            # current time and the past 
+            t      = torch.ones(_t, dtype=torch.int32) * _t      # [ t ]
+            tp     = torch.arange(_t)                            # [ t ]
+            # self-exciting effect
+            kernel = self._exp_kernel(self.hbeta, t, tp, self.K) # [ K, t ]
+            Nt     = self.obs[:, :_t].clone()                    # [ K, t ]
+            lam1   = torch.mm(self.halpha, Nt * kernel).sum(1)   # [ K ]
+            lam    = self.hmu + torch.nn.functional.softplus(lam1)
+        else:
+            lam    = self.hmu
         return lam
         
     def _log_likelihood(self):
@@ -171,9 +174,10 @@ class TorchHawkes(torch.nn.Module):
         # lambda values from 0 to N
         lams     = [ self._lambda(t) for t in np.arange(self.N) ] # ( N, [ K ] )
         lams     = torch.stack(lams, dim=1)                       # [ K, N ]
-        Nloglams = self.obs * torch.log(lams)                     # [ K, N ]
+        Nloglams = self.obs * torch.log(lams + 1e-5)              # [ K, N ]
         # log-likelihood function
         loglik   = (Nloglams - lams).sum()
+        print(self.hbeta.mean())
         return loglik, lams
 
     def forward(self):
@@ -184,16 +188,21 @@ class TorchHawkes(torch.nn.Module):
         return self._log_likelihood()
 
     @staticmethod
-    def _exp_kernel(beta, t, tp):
+    def _exp_kernel(beta, t, tp, K):
         """
         Args:
-        - t, tp: time index [ n ]
+        - t, tp: time index [ t ]
         """
         # print(t - tp)
         # print(beta)
         # print((t - tp) * beta)
         # print(torch.exp(- (t - tp) * beta))
-        return beta * torch.exp(- (t - tp) * beta)
+        delta_t = t - tp                              # [ t ]
+        delta_t = delta_t.unsqueeze(0).repeat([K, 1]) # [ K, t ]
+        beta    = beta.unsqueeze(1)                   # [ K, 1 ]
+        # print(delta_t)
+        # print(delta_t.shape)
+        return beta * torch.exp(- delta_t * beta)
 
 
 
@@ -264,12 +273,12 @@ class TorchHawkesNNCovariates(TorchHawkes):
 
 if __name__ == "__main__":
     
-    torch.manual_seed(1)
+    torch.manual_seed(2)
     
-    from plot import *
+    from plot_ma import *
 
     # load data
-    obs_outage, obs_weather, locs = dataloader(config["Normal MA Mar 2018"])
+    obs_outage, obs_weather, locs, _ = dataloader(config["MA Mar 2018"])
     loc_ids = locs[:, 2]
     print(obs_outage.shape)
     print(obs_weather.shape)
@@ -278,7 +287,7 @@ if __name__ == "__main__":
     model = TorchHawkesNNCovariates(d=6, obs=obs_outage, covariates=obs_weather)
     train(model, locs=locs, niter=1000, lr=1., log_interval=10)
     print("[%s] saving model..." % arrow.now())
-    torch.save(model.state_dict(), "saved_models/hawkes_covariates_varbeta_ma_201803full_d6_feat35.pt")
+    torch.save(model.state_dict(), "saved_models/hawkes_covariates_vecbeta_ma_201803full_d6_feat35.pt")
     print(model.hbeta.detach().numpy())
 
     # evaluation
@@ -290,9 +299,9 @@ if __name__ == "__main__":
     worces_ind = np.where(loc_ids == 316.)[0][0]
     spring_ind = np.where(loc_ids == 132.)[0][0]
     cambri_ind = np.where(loc_ids == 192.)[0][0]
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams.sum(0), obs_outage.sum(0), "Prediction of total outages in MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[boston_ind], obs_outage[boston_ind], "Prediction for Boston, MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[worces_ind], obs_outage[worces_ind], "Prediction for Worcester, MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[spring_ind], obs_outage[spring_ind], "Prediction for Springfield, MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], lams[cambri_ind], obs_outage[cambri_ind], "Prediction for Cambridge, MA (Mar 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage.sum(0), lams.sum(0), "Prediction of total outages in MA (Mar 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[boston_ind], lams[boston_ind], "Prediction for Boston, MA (Mar 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[worces_ind], lams[worces_ind], "Prediction for Worcester, MA (Mar 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[spring_ind], lams[spring_ind], "Prediction for Springfield, MA (Mar 2018)", dayinterval=1)
+    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[cambri_ind], lams[cambri_ind], "Prediction for Cambridge, MA (Mar 2018)", dayinterval=1)
     

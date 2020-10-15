@@ -58,7 +58,7 @@ config = {
         "outage_freq":    15 * 60,                 # seconds per recording
         # weather configuration
         "weather_path":   "maweather-201803",
-        "weather_geo":    "weathergeolocations.npy",
+        "weather_geo":    "ma_weathergeolocations.npy",
         "weather_startt": "2018-03-01 00:00:00",
         "weather_endt":   "2018-03-31 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
@@ -76,7 +76,7 @@ config = {
         "outage_freq":    15 * 60,                 # seconds per recording
         # weather configuration
         "weather_path":   "maweather-201803",
-        "weather_geo":    "weathergeolocations.npy",
+        "weather_geo":    "ma_weathergeolocations.npy",
         "weather_startt": "2018-03-01 00:00:00",
         "weather_endt":   "2018-03-31 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
@@ -94,7 +94,7 @@ config = {
         "outage_freq":    15 * 60,                 # seconds per recording
         # weather configuration
         "weather_path":   "maweather-201810",
-        "weather_geo":    "weathergeolocations.npy",
+        "weather_geo":    "ma_weathergeolocations.npy",
         "weather_startt": "2018-10-01 00:00:00",
         "weather_endt":   "2018-10-31 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
@@ -112,7 +112,7 @@ config = {
         "outage_freq":    15 * 60,                 # seconds per recording
         # weather configuration
         "weather_path":   "maweather-201902",
-        "weather_geo":    "weathergeolocations.npy",
+        "weather_geo":    "ma_weathergeolocations.npy",
         "weather_startt": "2019-02-01 00:00:00",
         "weather_endt":   "2019-02-28 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
@@ -130,7 +130,7 @@ config = {
         "outage_freq":    15 * 60,                 # seconds per recording
         # weather configuration
         "weather_path":   "maweather-201910",
-        "weather_geo":    "weathergeolocations.npy",
+        "weather_geo":    "ma_weathergeolocations.npy",
         "weather_startt": "2019-10-01 00:00:00",
         "weather_endt":   "2019-10-31 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
@@ -175,23 +175,61 @@ config = {
         "_startt":        "2018-10-05 00:00:00",
         "_endt":          "2018-10-20 00:00:00"
     },
-    "FL Summer 2018": {
+    "NCSC Summer 2020": {
         # outage configurations
-        "outage_path":    "gaoutage_201809-11.npy",
-        "outage_geo":     "ga_geolocation_665.npy",
+        "outage_path":    "ncoutage_202005-09.npy",
+        "outage_geo":     "nc_geolocation_115.npy",
         "outage_startt":  "2020-05-01 00:00:00",
-        "outage_endt":    "2020-08-27 23:45:00",
+        "outage_endt":    "2020-09-14 23:45:00",
         "outage_freq":    15 * 60,                 # seconds per recording
         # weather configuration
-        "weather_path":   "conv_flweather_20200508",
-        "weather_geo":    "ga_geolocation_665.npy",
+        "weather_path":   "conv_ncscweather-202005",
+        "weather_geo":    "nc_geolocation_115.npy",
         "weather_startt": "2020-05-01 00:00:00",
-        "weather_endt":   "2020-08-27 23:00:00",
+        "weather_endt":   "2020-09-14 23:00:00",
         "weather_freq":   60 * 60,                 # seconds per recording
         "feat_list":      concise_new_feat_list,
         # time window
-        "_startt":        "2018-10-05 00:00:00",
-        "_endt":          "2018-10-20 00:00:00"
+        "_startt":        "2020-05-01 00:00:00",
+        "_endt":          "2020-09-14 00:00:00"
+    },
+    "NCSC May 2020": {
+        # outage configurations
+        "outage_path":    "ncoutage_202005-09.npy",
+        "outage_geo":     "nc_geolocation_115.npy",
+        "outage_startt":  "2020-05-01 00:00:00",
+        "outage_endt":    "2020-09-14 23:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "conv_ncscweather-202005",
+        "weather_geo":    "nc_geolocation_115.npy",
+        "weather_startt": "2020-05-01 00:00:00",
+        "weather_endt":   "2020-09-14 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      concise_new_feat_list,
+        # time window
+        # Tropical Storm Arthur
+        "_startt":        "2020-05-15 00:00:00",
+        "_endt":          "2020-06-01 00:00:00"
+    },
+    "NCSC Aug 2020": {
+        # outage configurations
+        "outage_path":    "ncoutage_202005-09.npy",
+        "outage_geo":     "nc_geolocation_115.npy",
+        "outage_startt":  "2020-05-01 00:00:00",
+        "outage_endt":    "2020-09-14 23:45:00",
+        "outage_freq":    15 * 60,                 # seconds per recording
+        # weather configuration
+        "weather_path":   "conv_ncscweather-202005",
+        "weather_geo":    "nc_geolocation_115.npy",
+        "weather_startt": "2020-05-01 00:00:00",
+        "weather_endt":   "2020-09-14 23:00:00",
+        "weather_freq":   60 * 60,                 # seconds per recording
+        "feat_list":      concise_new_feat_list,
+        # time window
+        # Hurricane Isaias
+        "_startt":        "2020-07-31 00:00:00",
+        "_endt":          "2020-08-10 00:00:00"
     },
 }
 
@@ -263,6 +301,10 @@ def dataloader(config, standardization=True, outageN=3, weatherN=3, isproj=True)
     """
     obs_outage, geo_outage = load_outage(config)
     obs_feats, geo_weather = load_weather(config)
+
+    # NOTE: FOR NCSC DATA
+    n_locs    = obs_outage.shape[1]
+    obs_feats = obs_feats[:, :, :n_locs]
 
     # data standardization
     print("[%s] weather data standardization ..." % arrow.now())
