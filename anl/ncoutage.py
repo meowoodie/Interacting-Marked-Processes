@@ -11,7 +11,7 @@ from tqdm import tqdm
 # read data into list
 data     = []
 counter  = 0
-rootpath = "/Users/woodie/Desktop/gaweather/gaweather_201809-11_p"
+rootpath = "/Users/woodie/Desktop/NCSC_data/ncscoutage"
 print("[%s] reading data into data frame ..." % arrow.now())
 for filename in tqdm(os.listdir(rootpath)):
     if filename.endswith(".h5"):
@@ -32,10 +32,13 @@ for filename in tqdm(os.listdir(rootpath)):
         loc     = loc[_idx, :]
         outage  = outage[_idx].tolist()
         # only keep complete data entry
-        if len(outage) == 665: 
-            data.append([t.timestamp] + outage)
+        print(t, len(outage))
+        # if len(outage) == 116: 
+        if len(outage) >= 115:
+            # print(sum(idx - np.arange(115)))
+            data.append([t.timestamp] + outage[:115])
 
-np.save("data/ga_geolocation_665.npy", loc)
+np.save("data/nc_geolocation_115.npy", loc[:115])
 
 print("[%s] sorting the list by their timestamp ..." % arrow.now())
 data = np.array(data)
@@ -51,8 +54,8 @@ start_t    = data[0, 0]  # start time
 end_t      = data[-1, 0] # end time
 data[:, 0] = (data[:, 0] - start_t) / (15 * 60)     # every 15 mins per event
 N          = int((end_t - start_t) / (15 * 60)) + 1 # total number of events
-mat        = np.zeros((N, 665), np.int32)
+mat        = np.zeros((N, 115), np.int32)
 for di, mi in tqdm(enumerate(data[:, 0])):
     mat[mi, :] = data[di, 1:]
 
-np.save("data/gaoutage_201809-11.npy", mat)
+np.save("data/ncoutage_202005-09.npy", mat)

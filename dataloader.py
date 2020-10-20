@@ -302,9 +302,9 @@ def dataloader(config, standardization=True, outageN=3, weatherN=3, isproj=True)
     obs_outage, geo_outage = load_outage(config)
     obs_feats, geo_weather = load_weather(config)
 
-    # NOTE: FOR NCSC DATA
-    n_locs    = obs_outage.shape[1]
-    obs_feats = obs_feats[:, :, :n_locs]
+    # # NOTE: FOR NCSC DATA
+    # n_locs    = obs_outage.shape[1]
+    # obs_feats = obs_feats[:, :, :n_locs]
 
     # data standardization
     print("[%s] weather data standardization ..." % arrow.now())
