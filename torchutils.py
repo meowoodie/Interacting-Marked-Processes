@@ -45,22 +45,23 @@ def sparse_2D_flatten(spr_torch):
     new_spr_torch = torch.sparse.FloatTensor(new_i, v, new_size)
     return new_spr_torch
 
-
-
-if __name__ == "__main__":
-    # Unit-test
-
-    # i         = torch.LongTensor([[0, 1, 2, 4, 5], [5, 4, 3, 1, 0]])
-    # v         = torch.FloatTensor([1, 2, 3, 4, 5])
-    # spr_torch = torch.sparse.FloatTensor(i, v, torch.Size([6, 6]))
-    # print(spr_torch.to_dense())
-    # print(sparse_2D_slicing(spr_torch, 2, 5, dim=0).to_dense())
-    # print(sparse_2D_flatten(spr_torch).to_dense())
-
-    i   = [[0, 1, 2, 4, 5], [5, 4, 3, 1, 0]]
-    v   = [1, 2, 3, 4, 5]
-    csr = sparse.csr_matrix((v, i), shape=[6, 6])
-    # print(spr_torch.toarray())
-    # print(spr_torch[2:5, :].toarray())
-    # print(spr_torch.transpose().reshape(1, -1).toarray())
-    print(csr2torch(csr))
+def conv_covariates(rawX, model):
+    """
+    convolution of covariates with an exponential decaying kernel defined in model.
+    """
+    rawX   = torch.Tensor(rawX)
+    conv_X = []
+    for t in np.arange(rawX.shape[1]): # (model.N):
+        # retrieve observed covariates in the past d time slots
+        if t < model.d:
+            x     = rawX[:, :t, :]                           # [ K, t, M ]
+            x_pad = rawX[:, :1, :].repeat([1, model.d-t, 1]) # [ K, d - t, M ]
+            x     = torch.cat([x_pad, x], dim=1)             # [ K, d, M ]
+        else:
+            x     = rawX[:, t-model.d:t, :]                  # [ K, d, M ]
+        # convolution with an exponential decaying kernel
+        conv_x    = model.conv_exp_decay_kernel(x)           # [ K, M ]
+        # conv_x    = x.sum(1)                                 # [ K, M ]
+        conv_X.append(conv_x)                                # ( N, [ K, M ])
+    conv_X = torch.stack(conv_X, dim=1)                      # [ K, N, M ]
+    return conv_X

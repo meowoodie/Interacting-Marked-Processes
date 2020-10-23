@@ -4,10 +4,12 @@
 import torch
 import arrow
 import random
+import torchutils
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm
 from scipy import sparse
+from scipy.optimize import curve_fit
 from sklearn.metrics.pairwise import euclidean_distances
 
 from dataloader import dataloader, config
@@ -27,9 +29,9 @@ def train(model, locs, niter=1000, lr=1e-1, log_interval=50):
         try:
             model.train()
             optimizer.zero_grad()           # init optimizer (set gradient to be zero)
-            loglik, _ = model()
+            loglik, _, _ = model()
             # objective function
-            loss      = - loglik
+            loss         = - loglik
             loss.backward()                 # gradient descent
             optimizer.step()                # update optimizer
             model.apply(clipper1)
@@ -59,20 +61,19 @@ class NonNegativeClipper(object):
     def __call__(self, module):
         """enforce non-negative constraints"""
         # TorchHawkes
-        if hasattr(module, 'halpha'):
-            halpha = module.halpha.data
-            module.halpha.data = torch.clamp(halpha, min=0.)
-        if hasattr(module, 'hbeta'):
-            hbeta  = module.hbeta.data
-            module.hbeta.data  = torch.clamp(hbeta, min=0.)
+        if hasattr(module, 'Alpha'):
+            Alpha = module.Alpha.data
+            module.Alpha.data = torch.clamp(Alpha, min=0.)
+        if hasattr(module, 'Beta'):
+            Beta  = module.Beta.data
+            module.Beta.data  = torch.clamp(Beta, min=0.)
         # TorchHawkesNNCovariates
-        if hasattr(module, 'gamma'):
-            gamma  = module.gamma.data
-            module.gamma.data = torch.clamp(gamma, min=0.)
-        if hasattr(module, 'omega'):
-            omega  = module.omega.data
-            module.omega.data = torch.clamp(omega, min=0.)
-
+        if hasattr(module, 'Gamma'):
+            Gamma  = module.Gamma.data
+            module.Gamma.data = torch.clamp(Gamma, min=0.)
+        if hasattr(module, 'Omega'):
+            Omega  = module.Omega.data
+            module.Omega.data = torch.clamp(Omega, min=0.)
 
 
 
@@ -92,9 +93,9 @@ class ProximityClipper(object):
     def __call__(self, module):
         """enforce non-negative constraints"""
         # TorchHawkes
-        if hasattr(module, 'halpha'):
-            alpha = module.halpha.data
-            module.halpha.data = alpha * self.proxmat
+        if hasattr(module, 'Alpha'):
+            alpha = module.Alpha.data
+            module.Alpha.data = alpha * self.proxmat
     
     @staticmethod
     def _k_nearest_mask(distmat, k):
@@ -132,10 +133,15 @@ class TorchHawkes(torch.nn.Module):
         # configurations
         self.K, self.N = obs.shape
         # parameters
-        self.hmu    = self.obs.mean(1) / 10 + 1e-2
-        self.hbeta  = torch.nn.Parameter(torch.Tensor(self.K).uniform_(1, 3))
-        # self.hbeta  = torch.nn.Parameter(torch.Tensor([2]))
-        self.halpha = torch.nn.Parameter(torch.Tensor(self.K, self.K).uniform_(0, .01))
+        self.Mu0   = self.obs.mean(1) / 10 + 1e-2                                      # [ K ]
+        self.Beta  = torch.nn.Parameter(torch.Tensor(self.K).uniform_(1, 3))           # [ K ]
+        self.Alpha = torch.nn.Parameter(torch.Tensor(self.K, self.K).uniform_(0, .01)) # [ K, K ]
+    
+    def _mu(self, _t):
+        """
+        Background rate at time `t`
+        """
+        return self.Mu0
 
     def _lambda(self, _t):
         """
@@ -151,12 +157,12 @@ class TorchHawkes(torch.nn.Module):
             t      = torch.ones(_t, dtype=torch.int32) * _t      # [ t ]
             tp     = torch.arange(_t)                            # [ t ]
             # self-exciting effect
-            kernel = self._exp_kernel(self.hbeta, t, tp, self.K) # [ K, t ]
+            kernel = self.__exp_kernel(self.Beta, t, tp, self.K) # [ K, t ]
             Nt     = self.obs[:, :_t].clone()                    # [ K, t ]
-            lam1   = torch.mm(self.halpha, Nt * kernel).sum(1)   # [ K ]
-            lam    = self.hmu + torch.nn.functional.softplus(lam1)
+            lam    = torch.mm(self.Alpha, Nt * kernel).sum(1)    # [ K ]
+            lam    = torch.nn.functional.softplus(lam)           # [ K ]
         else:
-            lam    = self.hmu
+            lam    = torch.zeros(self.K)
         return lam
         
     def _log_likelihood(self):
@@ -172,13 +178,14 @@ class TorchHawkes(torch.nn.Module):
         - lams:   a list of historical conditional intensity values at time t = tau, ..., t
         """
         # lambda values from 0 to N
-        lams     = [ self._lambda(t) for t in np.arange(self.N) ] # ( N, [ K ] )
-        lams     = torch.stack(lams, dim=1)                       # [ K, N ]
-        Nloglams = self.obs * torch.log(lams + 1e-5)              # [ K, N ]
+        lams0    = [ self._mu(t) for t in np.arange(self.N) ]     # ( N, [ K ] )
+        lams1    = [ self._lambda(t) for t in np.arange(self.N) ] # ( N, [ K ] )
+        lams0    = torch.stack(lams0, dim=1)                      # [ K, N ]
+        lams1    = torch.stack(lams1, dim=1)                      # [ K, N ]
+        Nloglams = self.obs * torch.log(lams0 + lams1 + 1e-5)     # [ K, N ]
         # log-likelihood function
-        loglik   = (Nloglams - lams).sum()
-        print(self.hbeta.mean())
-        return loglik, lams
+        loglik   = (Nloglams - lams0 - lams1).sum()
+        return loglik, lams0, lams1
 
     def forward(self):
         """
@@ -188,21 +195,16 @@ class TorchHawkes(torch.nn.Module):
         return self._log_likelihood()
 
     @staticmethod
-    def _exp_kernel(beta, t, tp, K):
+    def __exp_kernel(Beta, t, tp, K):
         """
         Args:
-        - t, tp: time index [ t ]
+        - Beta:  decaying rate [ K ]
+        - t, tp: time index    [ t ]
         """
-        # print(t - tp)
-        # print(beta)
-        # print((t - tp) * beta)
-        # print(torch.exp(- (t - tp) * beta))
         delta_t = t - tp                              # [ t ]
         delta_t = delta_t.unsqueeze(0).repeat([K, 1]) # [ K, t ]
-        beta    = beta.unsqueeze(1)                   # [ K, 1 ]
-        # print(delta_t)
-        # print(delta_t.shape)
-        return beta * torch.exp(- delta_t * beta)
+        Beta    = Beta.unsqueeze(1)                   # [ K, 1 ]
+        return Beta * torch.exp(- delta_t * Beta)
 
 
 
@@ -230,44 +232,58 @@ class TorchHawkesNNCovariates(TorchHawkes):
             (N, K, self.M, self.N, self.K)
         # data
         self.covs  = torch.Tensor(covariates)   # [ K, N, M ]
-        # parameter
-        self.gamma = torch.nn.Parameter(torch.Tensor(self.K).uniform_(0, .01))
+        # parameters
+        self.Gamma = torch.nn.Parameter(torch.Tensor(self.K).uniform_(0, .01)) # [ K ]
+        self.Omega = torch.nn.Parameter(torch.Tensor(self.M).uniform_(0, .5))  # [ M ]
         # network
         self.nn    = torch.nn.Sequential(
-            torch.nn.Linear(self.M * self.d * 2, 20), # [ M * d * 2, 20 ]
+            torch.nn.Linear(self.M, 200),       # [ M, 20 ]
             torch.nn.Softplus(), 
-            torch.nn.Linear(20, 1),                   # [ 20, 1 ]
+            torch.nn.Linear(200, 200),          # [ 20, 1 ]
+            torch.nn.Softplus(), 
+            torch.nn.Linear(200, 1),            # [ 20, 1 ]
             torch.nn.Softplus())
         self.hmu   = 0
 
-    def _lambda(self, _t):
+    def _mu(self, _t):
         """
-        Conditional intensity function at time `t`
+        Background rate at time `t`
 
         Args:
         - _t:  index of time, e.g., 0, 1, ..., N (integer)
         Return:
         - lam: a vector of lambda value at time t and location k = 0, 1, ..., K [ K ]
         """
-        # self-exciting effects
-        lam1 = TorchHawkes._lambda(self, _t)
-        # covariate effects
+        # get covariates in the past d time slots
         if _t < self.d:
-            X     = self.covs[:, :_t + self.d, :].clone()                              # [ K, t + d, M ]
-            X_pad = self.covs[:, :1, :].clone().repeat([1, self.d - _t, 1])            # [ K, d - t, M ]
-            X     = torch.cat([X_pad, X], dim=1)                                       # [ K, d * 2, M ]
-        elif _t > self.N - self.d:
-            X     = self.covs[:, _t - self.d:, :].clone()                              # [ K, d + N - t, M ]
-            X_pad = self.covs[:, -1:, :].clone().repeat([1, self.d + _t - self.N , 1]) # [ K, d + t - N, M ]
-            X     = torch.cat([X, X_pad], dim=1)                                       # [ K, d * 2, M ]
+            X     = self.covs[:, :_t, :].clone()                            # [ K, t, M ]
+            X_pad = self.covs[:, :1, :].clone().repeat([1, self.d - _t, 1]) # [ K, d - t, M ]
+            X     = torch.cat([X_pad, X], dim=1)                            # [ K, d, M ]
         else:
-            X  = self.covs[:, _t - self.d:_t + self.d, :].clone() # [ K, d * 2, M ]
+            X     = self.covs[:, _t-self.d:_t, :].clone()                   # [ K, d, M ]
+        # convolution with an exponential decaying kernel
+        conv_X    = self.conv_exp_decay_kernel(X)                           # [ K, M ]
         # calculate base intensity
-        X   = X.reshape(self.K, self.M * self.d * 2)           # [ K, M * d * 2 ]
-        mu  = self.nn(X)                                       # [ K, 1 ]
-        # calculate intensity
-        lam = lam1 + self.gamma * mu.clone().squeeze_()
-        return lam
+        mu  = self.nn(conv_X)                                               # [ K, 1 ]
+        mu  = self.Gamma * mu.clone().squeeze_()                            # [ K ]
+        return mu
+
+    def conv_exp_decay_kernel(self, X):
+        """
+        Compute convolution of covariates with an exponential decaying kernel.
+
+        Arg:
+        - X: observed covariates in the past d time slots [ K, d, M ]
+        """
+        # exponential decaying kernel
+        delta_t = torch.arange(self.d)                       # [ d ]
+        delta_t = delta_t.unsqueeze(1).repeat([1, self.M])   # [ d, M ]
+        Omega   = self.Omega.unsqueeze(0)                    # [ 1, M ]
+        kernel  = torch.exp(- delta_t * Omega)               # [ d, M ]
+        kernel  = kernel.unsqueeze(0).repeat([self.K, 1, 1]) # [ K, d, M ]
+        # convolution 
+        conv_X  = (X * kernel).sum(1)                        # [ K, M ]
+        return conv_X
 
 
 
@@ -280,28 +296,66 @@ if __name__ == "__main__":
     # load data
     obs_outage, obs_weather, locs, _ = dataloader(config["MA Mar 2018"])
     loc_ids = locs[:, 2]
-    print(obs_outage.shape)
-    print(obs_weather.shape)
 
     # training
-    model = TorchHawkesNNCovariates(d=6, obs=obs_outage, covariates=obs_weather)
-    train(model, locs=locs, niter=1000, lr=1., log_interval=10)
-    print("[%s] saving model..." % arrow.now())
-    torch.save(model.state_dict(), "saved_models/hawkes_covariates_vecbeta_ma_201803full_d6_feat35.pt")
-    print(model.hbeta.detach().numpy())
+    model = TorchHawkesNNCovariates(d=24, obs=obs_outage, covariates=obs_weather)
+    model.load_state_dict(torch.load("saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt"))
+    # train(model, locs=locs, niter=1000, lr=1., log_interval=10)
+    # print("[%s] saving model..." % arrow.now())
+    # torch.save(model.state_dict(), "saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt")
 
     # evaluation
-    _, lams = model()
-    lams    = lams.detach().numpy()
+    _, mus, lams = model()
+    # lams         = lams.detach().numpy()
+    # mus          = mus.detach().numpy()
+    # lams         = lams + mus
 
-    # visualization
-    boston_ind = np.where(loc_ids == 199.)[0][0]
-    worces_ind = np.where(loc_ids == 316.)[0][0]
-    spring_ind = np.where(loc_ids == 132.)[0][0]
-    cambri_ind = np.where(loc_ids == 192.)[0][0]
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage.sum(0), lams.sum(0), "Prediction of total outages in MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[boston_ind], lams[boston_ind], "Prediction for Boston, MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[worces_ind], lams[worces_ind], "Prediction for Worcester, MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[spring_ind], lams[spring_ind], "Prediction for Springfield, MA (Mar 2018)", dayinterval=1)
-    plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[cambri_ind], lams[cambri_ind], "Prediction for Cambridge, MA (Mar 2018)", dayinterval=1)
+    # # visualization
+    # boston_ind = np.where(loc_ids == 199.)[0][0]
+    # worces_ind = np.where(loc_ids == 316.)[0][0]
+    # spring_ind = np.where(loc_ids == 132.)[0][0]
+    # cambri_ind = np.where(loc_ids == 192.)[0][0]
+    # plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage.sum(0), lams.sum(0), "Prediction of total outages in MA (Mar 2018)", dayinterval=1)
+    # plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[boston_ind], lams[boston_ind], "Prediction for Boston, MA (Mar 2018)", dayinterval=1)
+    # plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[worces_ind], lams[worces_ind], "Prediction for Worcester, MA (Mar 2018)", dayinterval=1)
+    # plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[spring_ind], lams[spring_ind], "Prediction for Springfield, MA (Mar 2018)", dayinterval=1)
+    # plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[cambri_ind], lams[cambri_ind], "Prediction for Cambridge, MA (Mar 2018)", dayinterval=1)
+    # print(model.Omega)
+    # print(model.Omega.mean())
+
     
+
+    obs_outage, obs_weather, locs, _ = dataloader(config["Normal MA Mar 2018"], standardization=False)
+    ncust        = np.expand_dims(np.load("data/ncustomer_ma.npy"), axis=1)
+    conv_weather = torchutils.conv_covariates(obs_weather, model)
+
+    gamma  = model.Gamma.detach().numpy()
+    mask   = np.where(gamma > 0)[0]
+    thoriz = list(range(0,18)) + list(range(120,150))
+
+    # find the cities with the largest and the smallest disruption rates
+    rates  = obs_outage[mask, :].max(axis=1) / ncust[mask, 0]
+
+    for i in range(35):
+        _id = (- 1 * rates).argsort()
+
+        x   = conv_weather[mask, :, :].detach().numpy()
+        X   = x[:, thoriz, i] # .reshape(len(mask) * len(thoriz))
+
+        y   = obs_outage[mask, :] / ncust[mask, :]
+        Y   = y[:, thoriz] # .reshape(len(mask) * len(thoriz))
+
+        # fig = plt.figure(figsize=(8, 8))
+        # plt.scatter(X, Y, s=2, c="gray", alpha=0.3)
+
+        fig  = plt.figure()
+        ax   = fig.add_subplot(111, projection='3d')
+        cmap = matplotlib.cm.get_cmap('Reds')
+        for z, j in enumerate(_id):
+            _X = X[j, :]
+            _Y = Y[j, :]
+            _Z = np.ones(len(thoriz)) * z
+            ax.scatter(_Z, _X, _Y, c=_Y, cmap=cmap, vmin=0, vmax=1)
+            ax.set_zlim(0, 1)
+        plt.show()
+        # plt.savefig("%d-weather.png" % i)

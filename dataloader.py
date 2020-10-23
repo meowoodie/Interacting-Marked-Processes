@@ -48,6 +48,10 @@ concise_old_feat_list = [
     "060", "061", "079", "101", "102"
 ]
 
+# concise_new_feat_list = [ "007", "073" ]
+
+# concise_old_feat_list = [ "007", "061" ]
+
 config = {
     "MA Mar 2018": {
         # outage configurations
@@ -325,12 +329,6 @@ def dataloader(config, standardization=True, outageN=3, weatherN=3, isproj=True)
     obs_outage  = avg(obs_outage, N=outageN).transpose()                    # [ n_locations, n_times ]
     obs_feats   = [ avg(obs, N=weatherN).transpose() for obs in obs_feats ] # ( n_feats, [ n_locations, n_times ] )
     obs_weather = np.stack(obs_feats, 2)                                    # [ n_locations, n_times, n_feats ]
-
-    # outage_show  = (obs_outage.sum(0) - obs_outage.sum(0).min()) / (obs_outage.sum(0).max() - obs_outage.sum(0).min())
-    # weather_show = (obs_weather[:, :, 0].sum(0) - obs_weather[:, :, 0].sum(0).min()) / (obs_weather[:, :, 0].sum(0).max() - obs_weather[:, :, 0].sum(0).min())
-    # plt.plot(outage_show)
-    # plt.plot(weather_show)
-    # plt.show()
 
     return obs_outage, obs_weather, geo_outage, geo_weather
 
