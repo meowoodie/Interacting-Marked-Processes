@@ -48,10 +48,6 @@ concise_old_feat_list = [
     "060", "061", "079", "101", "102"
 ]
 
-# concise_new_feat_list = [ "007", "073" ]
-
-# concise_old_feat_list = [ "007", "061" ]
-
 config = {
     "MA Mar 2018": {
         # outage configurations
@@ -69,7 +65,7 @@ config = {
         "feat_list":      concise_old_feat_list,
         # time window
         "_startt":        "2018-03-01 00:00:00",
-        "_endt":          "2018-03-17 00:00:00"
+        "_endt":          "2018-03-16 00:00:00" # "2018-03-17 00:00:00"
     },
     "Normal MA Mar 2018": {
         # outage configurations

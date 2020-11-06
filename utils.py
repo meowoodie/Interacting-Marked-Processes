@@ -6,6 +6,8 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib.collections as mcoll
+import matplotlib.path as mpath
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.cluster import KMeans
 
@@ -72,9 +74,60 @@ def proj(mat, coord, proj_coord, k=10):
 #         newdata[:, _id] = data[:, loc_inds].mean(axis=1)
 #     return newdata, kmeans.cluster_centers_
 
+# def plot_gradient_line(handler, start_point, end_point, value, cmap):
+#     cmap = 
+#     handler.plot([start_point[1], end_point[1]], [start_point[0], end_point[j, 0]], latlon=True, c=edge, linewidth=1.)
 
-# def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
-#     new_cmap = colors.LinearSegmentedColormap.from_list(
-#         'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
-#         cmap(np.linspace(minval, maxval, n)))
-#     return new_cmap
+def colorline(ax, 
+    start_point, end_point, cmap=plt.get_cmap('copper'), norm=plt.Normalize(0.0, 1.0), steps=10,
+    linewidth=1., alpha=1.0):
+    """
+    http://nbviewer.ipython.org/github/dpsanders/matplotlib-examples/blob/master/colorline.ipynb
+    http://matplotlib.org/examples/pylab_examples/multicolored_line.html
+    Plot a colored line with coordinates x and y
+    Optionally specify colors in the array z
+    Optionally specify a colormap, a norm function and a line width
+    """
+
+    path  = mpath.Path(np.stack([start_point, end_point]))
+    verts = path.interpolated(steps=steps).vertices
+    x, y  = verts[:, 0], verts[:, 1]
+    z     = np.linspace(0, 1, len(x))
+
+    # Default colors equally spaced on [0,1]:
+    if z is None:
+        z = np.linspace(0.0, 1.0, len(x))
+
+    # Special case if a single number:
+    if not hasattr(z, "__iter__"):  # to check for numerical input -- this is a hack
+        z = np.array([z])
+
+    z = np.asarray(z)
+
+    segments = make_segments(x, y)
+    lc = mcoll.LineCollection(segments, array=z, cmap=cmap, norm=norm, 
+                              linewidth=linewidth, alpha=alpha)
+
+    # ax = plt.gca()
+    ax.add_collection(lc)
+
+    return lc
+
+# https://stackoverflow.com/questions/8500700/how-to-plot-a-gradient-color-line-in-matplotlib
+
+def make_segments(x, y):
+    """
+    Create list of line segments from x and y coordinates, in the correct format
+    for LineCollection: an array of the form numlines x (points per line) x 2 (x
+    and y) array
+    """
+
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    return segments
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+    return new_cmap

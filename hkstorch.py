@@ -14,13 +14,13 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 from dataloader import dataloader, config
 
-def train(model, locs, niter=1000, lr=1e-1, log_interval=50):
+def train(model, locs, k=100, niter=1000, lr=1e-1, log_interval=50):
     """training procedure for one epoch"""
     # coordinates of K locations
     coords    = locs[:, :2]
     # define model clipper to enforce inequality constraints
     clipper1  = NonNegativeClipper()
-    clipper2  = ProximityClipper(coords, k=100)
+    clipper2  = ProximityClipper(coords, k=k)
     # NOTE: gradient for loss is expected to be None, 
     #       since it is not leaf node. (it's root node)
     logliks = []
@@ -299,10 +299,10 @@ if __name__ == "__main__":
 
     # training
     model = TorchHawkesNNCovariates(d=24, obs=obs_outage, covariates=obs_weather)
-    model.load_state_dict(torch.load("saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt"))
-    # train(model, locs=locs, niter=1000, lr=1., log_interval=10)
-    # print("[%s] saving model..." % arrow.now())
-    # torch.save(model.state_dict(), "saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt")
+    # model.load_state_dict(torch.load("saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt"))
+    train(model, locs=locs, k=50, niter=1000, lr=1., log_interval=10)
+    print("[%s] saving model..." % arrow.now())
+    torch.save(model.state_dict(), "saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt")
 
     # evaluation
     _, mus, lams = model()
@@ -322,40 +322,3 @@ if __name__ == "__main__":
     # plot_2data_on_linechart(config["MA Mar 2018"]["_startt"], obs_outage[cambri_ind], lams[cambri_ind], "Prediction for Cambridge, MA (Mar 2018)", dayinterval=1)
     # print(model.Omega)
     # print(model.Omega.mean())
-
-    
-
-    obs_outage, obs_weather, locs, _ = dataloader(config["Normal MA Mar 2018"], standardization=False)
-    ncust        = np.expand_dims(np.load("data/ncustomer_ma.npy"), axis=1)
-    conv_weather = torchutils.conv_covariates(obs_weather, model)
-
-    gamma  = model.Gamma.detach().numpy()
-    mask   = np.where(gamma > 0)[0]
-    thoriz = list(range(0,18)) + list(range(120,150))
-
-    # find the cities with the largest and the smallest disruption rates
-    rates  = obs_outage[mask, :].max(axis=1) / ncust[mask, 0]
-
-    for i in range(35):
-        _id = (- 1 * rates).argsort()
-
-        x   = conv_weather[mask, :, :].detach().numpy()
-        X   = x[:, thoriz, i] # .reshape(len(mask) * len(thoriz))
-
-        y   = obs_outage[mask, :] / ncust[mask, :]
-        Y   = y[:, thoriz] # .reshape(len(mask) * len(thoriz))
-
-        # fig = plt.figure(figsize=(8, 8))
-        # plt.scatter(X, Y, s=2, c="gray", alpha=0.3)
-
-        fig  = plt.figure()
-        ax   = fig.add_subplot(111, projection='3d')
-        cmap = matplotlib.cm.get_cmap('Reds')
-        for z, j in enumerate(_id):
-            _X = X[j, :]
-            _Y = Y[j, :]
-            _Z = np.ones(len(thoriz)) * z
-            ax.scatter(_Z, _X, _Y, c=_Y, cmap=cmap, vmin=0, vmax=1)
-            ax.set_zlim(0, 1)
-        plt.show()
-        # plt.savefig("%d-weather.png" % i)
