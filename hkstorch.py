@@ -305,7 +305,7 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), "saved_models/hawkes_covariates_vecbeta_ma_201803full_hisd24_feat35.pt")
 
     # evaluation
-    _, mus, lams = model()
+    # _, mus, lams = model()
     # lams         = lams.detach().numpy()
     # mus          = mus.detach().numpy()
     # lams         = lams + mus
